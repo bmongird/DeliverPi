@@ -23,9 +23,12 @@ camera_process = subprocess.Popen(["python", os.path.join(os.getcwd(), "color_de
 active_subprocesses.append(camera_process)
 ultrasonic_process = subprocess.Popen(["python", os.path.join(os.getcwd(), "ultrasonic.py")])
 active_subprocesses.append(ultrasonic_process)
+linefollower_process = subprocess.Popen(["python", os.path.join(os.getcwd(), "linefollower.py")])
+active_subprocesses.append(linefollower_process)
 
 car = mecanum.MecanumChassis()
 
+aisle_num = 0
 
 class Controller():
     """Singleton class that controls robot execution
@@ -49,7 +52,7 @@ class Controller():
             self.rep_socket = context.socket(zmq.REP)
             self.rep_socket.connect("tcp://localhost:5515")
             
-            self.components = ["camera", "ultrasonic"]
+            self.components = ["camera", "ultrasonic", "linefollower"]
             self.check_components()
             
             self.current_order = None
@@ -180,6 +183,12 @@ class Controller():
             case "blocked_timeout":
                 # still blocked after a timeout. move to next item and return to current one
                 pass
+            case "aisle_reached":
+                # here, should check what aisle we need to be in and react accordingly.
+                if aisle_num == 1:
+                    self._send_msg("linefollower", '{"command": "enter"}')
+                else:
+                    self._send_msg("linefollower", '{"command": "ignore"}')
         self.state_machine.transition(event)
             
     def execution_thread(self):
@@ -209,7 +218,6 @@ class Controller():
                     self.process_event("picking_init")
                 case ControllerStates.PathBlockedState:
                     car.set_velocity(0,90,0)
-                    print("Set car velocity to 0")
                     time.sleep(0.1)
                 case ControllerStates.PickingState:
                     # real meat and potatoes
