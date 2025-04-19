@@ -1,0 +1,26 @@
+[
+  {
+    "time": 10,
+    "deadline": 10,
+    "packages": [
+      {
+        "lane": 1,
+        "color": "red"
+      }
+    ]
+  },
+  {
+    "time": 15,
+    "deadline": 20,
+    "packages": [
+      {
+        "lane": 2,
+        "color": "blue"
+      },
+      {
+        "lane": 2,
+        "color": "green"
+      }
+    ]
+  }
+]
