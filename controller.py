@@ -3,12 +3,13 @@ import os
 import signal
 import subprocess
 import sys
-from typing import Tuple
+from typing import Tuple, cast
 import zmq
 import time
 import threading
 import logging
 from states import ControllerStateMachine, ControllerStates
+from common import OrderData
 
 sys.path.append('/home/pi/TurboPi/')
 import HiwonderSDK.mecanum as mecanum
@@ -30,6 +31,8 @@ car = mecanum.MecanumChassis()
 
 aisle_num = 0
 
+HUB_HOST = "localhost"
+
 class Controller():
     """Singleton class that controls robot execution
     """
@@ -49,15 +52,15 @@ class Controller():
             self.router_socket = context.socket(zmq.ROUTER)
             self.router_socket.bind("tcp://*:5575")
             
-            self.rep_socket = context.socket(zmq.REP)
-            self.rep_socket.connect("tcp://localhost:5515")
+            self.req_socket = context.socket(zmq.REQ)
+            self.req_socket.connect(f"tcp://{HUB_HOST}:{HUB_PORT}")
             
             self.process_event_lock = threading.Lock()
             
             self.components = ["camera", "ultrasonic", "linefollower"]
             self.check_components()
             
-            self.current_order = None
+            self.current_packages = []
             
             self.__initialized = True
             self.state_machine.transition("init_done")
@@ -210,10 +213,16 @@ class Controller():
             match controller.state_machine.state:
                 case ControllerStates.IdleState:
                     # block and wait for a msg from server here. server: router
-                    print("Waiting for server message")
-                    time.sleep(2) #pretend like we're waiting for a message
-                    print("Order received! {}")
-                    #message = self.rep_socket.recv()
+                    print("Requesting a new order")
+                    while True:
+                        self.req_socket.send(b"")
+                        data = self.req_socket.recv()
+                        if data:
+                            break
+                        time.sleep(1)
+                    order = cast(OrderData, data)
+                    self.current_packages = sorted(order["packages"], key=lambda x: x["lane"])
+                    print(f"Order received! {order}")
                     self.process_event("order_received")
                 case ControllerStates.MovingToAisleState:
                     #send start to line follower and ultrasonic
