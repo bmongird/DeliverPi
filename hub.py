@@ -1,9 +1,9 @@
 import heapq
 import logging
 import threading
-from typing import cast, override
+from typing import override
 import zmq
-from common import CONTROLLER_PORT, HUB_PORT, SERVER_PORT, OrderData
+from common import CONTROLLER_PORT, HUB_PORT, SERVER_PORT, OrderData, validate_order_data
 
 SERVER_HOST = "localhost"
 CONTROLLER_HOST = "localhost"
@@ -29,38 +29,51 @@ class HubThread(threading.Thread):
 
     @override
     def run(self):
+        logging.info("starting")
         poller = zmq.Poller()
         poller.register(self.server_sock)
         poller.register(self.hub_sock)
         poller.register(self.controller_sock)
 
-        logging.info("starting to receive")
-
         while True:
             try:
                 socks = dict(poller.poll())
             except KeyboardInterrupt:
+                logging.debug("keyboard interrupt")
                 break
 
             if self.server_sock in socks:
-                data = cast(OrderData, self.server_sock.recv_json())
-                heapq.heappush(self.orders, (data["deadline"], data))
+                logging.debug("data from server")
+                try:
+                    data = self.server_sock.recv_json()
+                    if validate_order_data(data):
+                        heapq.heappush(self.orders, (data["deadline"], data))
+                        logging.info(f"order received: {data}")
+                    else:
+                        logging.error(f"invalid order received: {data}")
+                except:
+                    logging.error("invalid order received")
+                
 
             if self.hub_sock in socks:
+                logging.debug("request from car")
                 try:
                     self.hub_sock.recv()
                     data = heapq.heappop(self.orders)[1]
                     self.hub_sock.send_json(data)
+                    logging.info(f"order sent: {data}")
                 except IndexError:
                     self.hub_sock.send(b"")
+                    logging.info("no orders available")
             
             if self.controller_sock in socks:
-                logging.info(f"Status update: {self.controller_sock.recv_string()}")
-
+                logging.debug("status update from car")
+                logging.info(f"status update: {self.controller_sock.recv_string()}")
+        logging.info("shutting down")
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.INFO, format="[{threadName}]: {message}", style="{"
+        level=logging.DEBUG, format="[{threadName}]: {message}", style="{"
     )
     t = HubThread(SERVER_HOST, SERVER_PORT, HUB_PORT)
     t.start()

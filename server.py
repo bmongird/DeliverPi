@@ -25,19 +25,26 @@ class ServerThread(threading.Thread):
 
     @override
     def run(self) -> None:
+        logging.info("starting")
         start_time = time.time()
+        logging.debug(f"start time: {start_time}")
         for order in self.orders:
-            time.sleep(order["time"] + start_time - time.time())
+            sleep_time = order["time"] + start_time - time.time()
+            if sleep_time > 0:
+                logging.debug(f"sleeping for {sleep_time}")
+                time.sleep(sleep_time)
             msg: OrderData = {
                 "deadline": order["deadline"],
                 "packages": order["packages"],
             }
             self.sock.send_json(msg)
+            logging.info(f"published order: {msg}")
+        logging.info("shutting down")
 
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.INFO, format="[{threadName}]: {message}", style="{"
+        level=logging.DEBUG, format="[{threadName}]: {message}", style="{"
     )
     t = ServerThread(SERVER_PORT)
     t.start()

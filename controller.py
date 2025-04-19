@@ -9,7 +9,7 @@ import time
 import threading
 import logging
 from states import ControllerStateMachine, ControllerStates
-from common import CONTROLLER_PORT, HUB_PORT, OrderData
+from common import CONTROLLER_PORT, HUB_PORT, OrderData, validate_order_data
 
 sys.path.append('/home/pi/TurboPi/')
 import HiwonderSDK.mecanum as mecanum
@@ -216,16 +216,20 @@ class Controller():
             match controller.state_machine.state:
                 case ControllerStates.IdleState:
                     # block and wait for a msg from server here. server: router
-                    print("Requesting a new order")
+                    logging.info("requesting a new order")
                     while True:
                         self.req_socket.send(b"")
                         data = self.req_socket.recv()
-                        if data:
+                        if not data:
+                            logging.debug("no orders available")
+                            time.sleep(1)
+                            continue
+                        order = json.loads(data)
+                        if validate_order_data(order):
                             break
-                        time.sleep(1)
-                    order = cast(OrderData, data)
-                    self.current_packages = sorted(order["packages"], key=lambda x: x["lane"])
-                    print(f"Order received! {order}")
+                        logging.error(f"invalid order received: {data}")
+                    self.current_packages = sorted(order["packages"], key=lambda x: x["aisle"])
+                    logging.info(f"order received: {order}")
                     self.process_event("order_received")
                 case ControllerStates.MovingToAisleState:
                     #send start to line follower and ultrasonic

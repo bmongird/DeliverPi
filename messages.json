@@ -4,7 +4,7 @@
     "deadline": 10,
     "packages": [
       {
-        "lane": 1,
+        "aisle": 1,
         "color": "red"
       }
     ]
@@ -14,11 +14,11 @@
     "deadline": 20,
     "packages": [
       {
-        "lane": 2,
+        "aisle": 2,
         "color": "blue"
       },
       {
-        "lane": 2,
+        "aisle": 2,
         "color": "green"
       }
     ]
