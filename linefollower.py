@@ -32,6 +32,7 @@ def msg():
         empty, request = dealer_socket.recv_multipart() # removing the prepended filter
         request = json.loads(request)
         logging.debug(f"Received request: {request}")
+        print(f"LINEFOLLOWER: Received request {request}")
         
         if request["command"] == "check":
             dealer_socket.send_multipart([b"", "ONLINE".encode()])
@@ -119,9 +120,10 @@ while True:
                 # NOTE: Special case because this means we've reached an aisle. Check if we should continue.
                 car.set_velocity(0,90,0)
                 dealer_socket.send_multipart([b"", "aisle_reached".encode()])
-                while not response_received:
+                while not response_received: # need condition var here?
                     time.sleep(0.01)
                 if ignore_aisle:
+                    print("IGNORING AISLE!!!!")
                     car.set_velocity(car_speed,90,0)
                     # give enough time to clear the aisle
                     time.sleep(0.8)

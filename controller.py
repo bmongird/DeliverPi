@@ -52,6 +52,8 @@ class Controller():
             self.rep_socket = context.socket(zmq.REP)
             self.rep_socket.connect("tcp://localhost:5515")
             
+            self.process_event_lock = threading.Lock()
+            
             self.components = ["camera", "ultrasonic", "linefollower"]
             self.check_components()
             
@@ -111,6 +113,8 @@ class Controller():
                     logging.error(f"{identity} {message}")
             case "ultrasonic":
                 self.process_event(message)
+            case "linefollower":
+                self.process_event(message)
                     
     
     def check_components(self):
@@ -152,44 +156,45 @@ class Controller():
 
         :param event: event to be processed
         """
-        current_state = self.state_machine.state
-        next_state = self.state_machine.get_next_state(event)
-        match event:
-            case "order_received":
-                # start line tracking thread to correct aisle
-                pass
-            case "picking_init":
-                msg = {
-                    "command": "detect_color",
-                    "color": "red"
-                }
-                self._send_msg("camera", json.dumps(msg))
-            case "color_detected":
-                pass
-            case "path_blocked":
-                msg = {
-                    "command": "stop"
-                }
-                for component in self.components:
-                    if component == "ultrasonic":
-                        continue
-                    self._send_msg(component, json.dumps(msg))
-            case "path_unblocked":
-                msg = {
-                    "command": "resume"
-                }
-                for component in self.components:
-                    self._send_msg(component, json.dumps(msg))
-            case "blocked_timeout":
-                # still blocked after a timeout. move to next item and return to current one
-                pass
-            case "aisle_reached":
-                # here, should check what aisle we need to be in and react accordingly.
-                if aisle_num == 1:
-                    self._send_msg("linefollower", '{"command": "enter"}')
-                else:
-                    self._send_msg("linefollower", '{"command": "ignore"}')
-        self.state_machine.transition(event)
+        with self.process_event_lock:
+            current_state = self.state_machine.state
+            next_state = self.state_machine.get_next_state(event)
+            match event:
+                case "order_received":
+                    # start line tracking thread to correct aisle
+                    pass
+                case "picking_init":
+                    msg = {
+                        "command": "detect_color",
+                        "color": "red"
+                    }
+                    self._send_msg("camera", json.dumps(msg))
+                case "color_detected":
+                    pass
+                case "path_blocked":
+                    msg = {
+                        "command": "stop"
+                    }
+                    for component in self.components:
+                        if component == "ultrasonic":
+                            continue
+                        self._send_msg(component, json.dumps(msg))
+                case "path_unblocked":
+                    msg = {
+                        "command": "resume"
+                    }
+                    for component in self.components:
+                        self._send_msg(component, json.dumps(msg))
+                case "blocked_timeout":
+                    # still blocked after a timeout. move to next item and return to current one
+                    pass
+                case "aisle_reached":
+                    # here, should check what aisle we need to be in and react accordingly.
+                    if aisle_num == 1:
+                        self._send_msg("linefollower", '{"command": "enter"}')
+                    else:
+                        self._send_msg("linefollower", '{"command": "ignore"}')
+            self.state_machine.transition(event)
             
     def execution_thread(self):
         """Main thread of execution for the controller.
@@ -211,7 +216,7 @@ class Controller():
                     #message = self.rep_socket.recv()
                     self.process_event("order_received")
                 case ControllerStates.MovingToAisleState:
-                    #simulate having moved
+                    #send start to line follower and ultrasonic
                     time.sleep(1)
                     print("Finished movement")
                     self.process_event("movement_complete")

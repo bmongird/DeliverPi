@@ -17,7 +17,7 @@ dealer_socket.identity = b"ultrasonic"
 dealer_socket.connect("tcp://localhost:5575")
 
 is_blocked = False
-_is_running = True
+_is_running = False
 time_blocked = 0
 
 
