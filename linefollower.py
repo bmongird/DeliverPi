@@ -17,17 +17,19 @@ import HiwonderSDK.FourInfrared as infrared
 
 car = mecanum.MecanumChassis()
 line = infrared.FourInfrared()
-_is_running = True
+_is_running = False
 
 context = zmq.Context()
 dealer_socket = context.socket(zmq.DEALER)
 dealer_socket.identity = b"linefollower"
 dealer_socket.connect("tcp://localhost:5575")
 
-response_received = False
 ignore_aisle = False
 
+aisle_condition = threading.Condition()
+
 def msg():
+    global ignore_aisle
     while True:
         empty, request = dealer_socket.recv_multipart() # removing the prepended filter
         request = json.loads(request)
@@ -49,12 +51,14 @@ def msg():
             logging.info(f"Resuming linefollower")
         elif request["command"] == "enter":
             #continue down aisle
-            ignore_aisle = False
-            response_received = True
-            pass
+            with aisle_condition:
+                ignore_aisle = False
+                aisle_condition.notify()
         elif request["command"] == "ignore":
-            ignore_aisle = True
-            response_received = True
+            with aisle_condition:
+                ignore_aisle = True
+                print("notifying")
+                aisle_condition.notify()
             # ignore aisle
 
 msg_thread = threading.Thread(target=msg)
@@ -68,8 +72,8 @@ def turn(direction: int):
     """
     turning = True
     yaw = -0.2 if direction == 0 else 0.2
-    time.sleep(0.3)
     car.set_velocity(0,90, yaw)
+    time.sleep(0.3)
     while turning:
         sensor1, sensor2, sensor3, sensor4 = line.readData()
         if direction == 0 and sensor1:
@@ -119,16 +123,21 @@ while True:
             case True, True, True, False:
                 # NOTE: Special case because this means we've reached an aisle. Check if we should continue.
                 car.set_velocity(0,90,0)
-                dealer_socket.send_multipart([b"", "aisle_reached".encode()])
-                while not response_received: # need condition var here?
-                    time.sleep(0.01)
-                if ignore_aisle:
-                    print("IGNORING AISLE!!!!")
-                    car.set_velocity(car_speed,90,0)
-                    # give enough time to clear the aisle
-                    time.sleep(0.8)
-                else:
-                    turn(0)
+                ignore_aisle = None
+                dealer_socket.send_multipart([b"", "intersection_reached".encode()])
+                with aisle_condition:
+                    while ignore_aisle == None:
+                        aisle_condition.wait()
+                    if ignore_aisle:
+                        logging.debug("Ignoring aisle")
+                        car.set_velocity(car_speed,90,0)
+                        # give enough time to clear the aisle
+                        time.sleep(0.8)
+                    else:
+                        logging.debug("Entering aisle")
+                        turn(0)
+                        dealer_socket.send_multipart([b"", "aisle_entered"])
+                
             case True, True, True, True:
                 #invalid state
                 car.set_velocity(0,90,0)

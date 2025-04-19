@@ -23,6 +23,7 @@ time_blocked = 0
 
 
 def msg():
+    global _is_running
     while(True):
         empty, request = dealer_socket.recv_multipart() # removing the prepended filter
         request = json.loads(request)

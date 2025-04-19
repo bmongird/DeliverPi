@@ -162,7 +162,19 @@ class Controller():
             match event:
                 case "order_received":
                     # start line tracking thread to correct aisle
+                    msg = {
+                        "command": "start"
+                    }
+                    for component in self.components:
+                        if component == "camera":
+                            continue
+                        self._send_msg(component, json.dumps(msg))
                     pass
+                case "movement_complete":
+                    msg = {
+                        "command": "stop"
+                    }
+                    self._send_msg("linefollower", json.dumps(msg))
                 case "picking_init":
                     msg = {
                         "command": "detect_color",
@@ -188,12 +200,14 @@ class Controller():
                 case "blocked_timeout":
                     # still blocked after a timeout. move to next item and return to current one
                     pass
-                case "aisle_reached":
-                    # here, should check what aisle we need to be in and react accordingly.
+                case "intersection_reached":
+                    # here, should check what aisle/lane we need to be in and react accordingly.
+                    global aisle_num # replace w/ order status
                     if aisle_num == 1:
                         self._send_msg("linefollower", '{"command": "enter"}')
                     else:
                         self._send_msg("linefollower", '{"command": "ignore"}')
+                    aisle_num += 1
             self.state_machine.transition(event)
             
     def execution_thread(self):
@@ -217,7 +231,7 @@ class Controller():
                     self.process_event("order_received")
                 case ControllerStates.MovingToAisleState:
                     #send start to line follower and ultrasonic
-                    time.sleep(1)
+                    time.sleep(5)
                     print("Finished movement")
                     self.process_event("movement_complete")
                     self.process_event("picking_init")
