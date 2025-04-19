@@ -30,6 +30,7 @@ aisle_condition = threading.Condition()
 
 def msg():
     global ignore_aisle
+    global _is_running
     while True:
         empty, request = dealer_socket.recv_multipart() # removing the prepended filter
         request = json.loads(request)
@@ -39,6 +40,9 @@ def msg():
         if request["command"] == "check":
             dealer_socket.send_multipart([b"", "ONLINE".encode()])
         elif request["command"] == "start":
+            if "param" in request:
+                if request["param"] == "180":
+                    turn(0)
             _is_running = True
             logging.info(f"Starting line following")
             # maybe send back an acknowledge?
@@ -136,7 +140,7 @@ while True:
                     else:
                         logging.debug("Entering aisle")
                         turn(0)
-                        dealer_socket.send_multipart([b"", "aisle_entered"])
+                        dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                 
             case True, True, True, True:
                 #invalid state
