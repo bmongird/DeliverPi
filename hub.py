@@ -3,9 +3,10 @@ import logging
 import threading
 from typing import cast, override
 import zmq
-from common import HUB_PORT, SERVER_PORT, OrderData
+from common import CONTROLLER_PORT, HUB_PORT, SERVER_PORT, OrderData
 
 SERVER_HOST = "localhost"
+CONTROLLER_HOST = "localhost"
 
 
 class HubThread(threading.Thread):
@@ -22,12 +23,16 @@ class HubThread(threading.Thread):
         self.server_sock.setsockopt_string(zmq.SUBSCRIBE, "")
         self.hub_sock = self.ctx.socket(zmq.REP)
         self.hub_sock.bind(f"tcp://*:{self.hub_port}")
+        self.controller_sock = self.ctx.socket(zmq.SUB)
+        self.controller_sock.connect(f"tcp://{CONTROLLER_HOST}:{CONTROLLER_PORT}")
+        self.controller_sock.setsockopt_string(zmq.SUBSCRIBE, "")
 
     @override
     def run(self):
         poller = zmq.Poller()
         poller.register(self.server_sock)
         poller.register(self.hub_sock)
+        poller.register(self.controller_sock)
 
         logging.info("starting to receive")
 
@@ -48,6 +53,9 @@ class HubThread(threading.Thread):
                     self.hub_sock.send_json(data)
                 except IndexError:
                     self.hub_sock.send(b"")
+            
+            if self.controller_sock in socks:
+                logging.info(f"Status update: {self.controller_sock.recv_string()}")
 
 
 if __name__ == "__main__":

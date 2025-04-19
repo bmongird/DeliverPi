@@ -3,6 +3,7 @@ from typing import TypedDict, override
 
 SERVER_PORT = 8000
 HUB_PORT = 8001
+CONTROLLER_PORT = 8002
 
 
 class PackageColor(StrEnum):

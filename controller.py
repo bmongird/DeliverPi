@@ -9,7 +9,7 @@ import time
 import threading
 import logging
 from states import ControllerStateMachine, ControllerStates
-from common import OrderData
+from common import CONTROLLER_PORT, HUB_PORT, OrderData
 
 sys.path.append('/home/pi/TurboPi/')
 import HiwonderSDK.mecanum as mecanum
@@ -54,6 +54,9 @@ class Controller():
             
             self.req_socket = context.socket(zmq.REQ)
             self.req_socket.connect(f"tcp://{HUB_HOST}:{HUB_PORT}")
+
+            self.pub_socket = context.socket(zmq.PUB)
+            self.pub_socket.bind(f"tcp://*:{CONTROLLER_PORT}")
             
             self.process_event_lock = threading.Lock()
             
