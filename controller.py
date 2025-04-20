@@ -28,6 +28,8 @@ linefollower_process = subprocess.Popen(["python", os.path.join(os.getcwd(), "li
 active_subprocesses.append(linefollower_process)
 
 car = mecanum.MecanumChassis()
+import HiwonderSDK.ros_robot_controller_sdk as rrc
+board = rrc.Board()
 
 aisle_num = 0
 
@@ -168,7 +170,25 @@ class Controller():
             match event:
                 case "order_received":
                     # start line tracking thread to correct aisle
+                    msg = {
+                        "command": "start"
+                    }
+                    for component in self.components:
+                        if component == "camera":
+                            continue
+                        self._send_msg(component, json.dumps(msg))
                     pass
+                case "order_grabbed":
+                    msg = {
+                        "command": "start",
+                        "param": "180"
+                    }
+                    self._send_msg("linefollower", json.dumps(msg))
+                case "movement_complete":
+                    msg = {
+                        "command": "stop"
+                    }
+                    self._send_msg("linefollower", json.dumps(msg))
                 case "picking_init":
                     msg = {
                         "command": "detect_color",
@@ -194,12 +214,15 @@ class Controller():
                 case "blocked_timeout":
                     # still blocked after a timeout. move to next item and return to current one
                     pass
-                case "aisle_reached":
-                    # here, should check what aisle we need to be in and react accordingly.
+                case "intersection_reached":
+                    # here, should check what aisle/lane we need to be in and react accordingly.
+                    global aisle_num # replace w/ order status
                     if aisle_num == 1:
                         self._send_msg("linefollower", '{"command": "enter"}')
+                        event = "picking_init" #override event
                     else:
                         self._send_msg("linefollower", '{"command": "ignore"}')
+                    aisle_num += 1
             self.state_machine.transition(event)
             
     def execution_thread(self):
@@ -232,17 +255,25 @@ class Controller():
                     logging.info(f"order received: {order}")
                     self.process_event("order_received")
                 case ControllerStates.MovingToAisleState:
-                    #send start to line follower and ultrasonic
-                    time.sleep(1)
-                    print("Finished movement")
-                    self.process_event("movement_complete")
-                    self.process_event("picking_init")
+                    pass
                 case ControllerStates.PathBlockedState:
                     car.set_velocity(0,90,0)
                     time.sleep(0.1)
                 case ControllerStates.PickingState:
                     # real meat and potatoes
                     pass                    
+                case ControllerStates.GrabbingState:
+                    r,g,b = 255, 255, 255
+                    for i in range (0,5):
+                        board.set_buzzer(1900, 0.1, 0.9, 1)
+                        board.set_rgb([[1, r, g, b], [2, r, g, b]])
+                        r -= 55
+                        g -= 25
+                        b -= 35
+                        time.sleep(0.5)
+                    self.process_event("order_grabbed")
+                    
+                    # order_grabbed
 
     def exit(self, code: int = 0, msg: str = None):
         """Clean up remaining resources and safely exit the program

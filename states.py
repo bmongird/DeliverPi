@@ -81,12 +81,22 @@ class ControllerStates:
     class MovingToAisleState(State):
         def determine_next_state(event):
             match event:
-                case "movement_complete":
+                case "picking_init":
                     return ControllerStates.PickingState
                 case "path_blocked":
                     return ControllerStates.PathBlockedState
                 case _:
                     return ControllerStates.MovingToAisleState 
+
+    class ExitAisleState(State):
+        def determine_next_state(event):
+            match event:
+                case "to_aisle":
+                    return ControllerStates.MovingToAisleState
+                case "to_hub":
+                    return ControllerStates.MovingToHubState
+                case _:
+                    return ControllerStates.ExitAisleState
                 
     class MovingToHubState(State):
         def determine_next_state(event):
@@ -107,6 +117,14 @@ class ControllerStates:
                     return ControllerStates.MovingToAisleState
                 case "path_blocked":
                     return ControllerStates.PathBlockedState
+                case _:
+                    return ControllerStates.PickingState 
+                
+    class GrabbingState(State):
+        def determine_next_state(event):
+            match event:
+                case "order_grabbed":
+                    return ControllerStates.ExitAisleState
                 case _:
                     return ControllerStates.PickingState 
         
