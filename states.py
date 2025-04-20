@@ -117,6 +117,8 @@ class ControllerStates:
                     return ControllerStates.MovingToAisleState
                 case "path_blocked":
                     return ControllerStates.PathBlockedState
+                case "color_detected":
+                    return ControllerStates.GrabbingState
                 case _:
                     return ControllerStates.PickingState 
                 
@@ -124,9 +126,9 @@ class ControllerStates:
         def determine_next_state(event):
             match event:
                 case "order_grabbed":
-                    return ControllerStates.ExitAisleState
+                    return ControllerStates.PickingState
                 case _:
-                    return ControllerStates.PickingState 
+                    return ControllerStates.GrabbingState 
         
     class IdleState(State):
         def determine_next_state(event):

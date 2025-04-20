@@ -168,7 +168,7 @@ def move():
                 #     "status": "found",
                 #     "color": target_color,
                 # }
-                dealer_socket.send_multipart([b"", b"COLOR DETECTED"])
+                dealer_socket.send_multipart([b"", b"color_detected"])
                 stop()
                 detect_color = 'None'
                 setTargetColor(None)

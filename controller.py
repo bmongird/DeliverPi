@@ -65,7 +65,8 @@ class Controller():
             self.components = ["camera", "ultrasonic", "linefollower"]
             self.check_components()
             
-            self.current_packages = []
+            self.remaining_packages = []
+            self.completed_packages = []
             
             self.__initialized = True
             self.state_machine.transition("init_done")
@@ -81,7 +82,6 @@ class Controller():
         msg = msg.encode()
         identity = identity.encode()
         self.router_socket.send_multipart([identity, b"", msg])
-        # router_socket.send_multipart([b"camera", b"", b'{"command": "detect_color", "color": "blue"}'])#json.dumps(command).encode()])
 
     def _recv_msg(self) -> Tuple[str, str]:
         """Receive a message on the router socket
@@ -110,7 +110,7 @@ class Controller():
         """
         match identity:
             case "camera":
-                if "COLOR DETECTED" in message:
+                if "color_detected" in message:
                     # Trigger appropriate action
                     print("CONTROLLER: Color detected!")
                     self.process_event("color_detected")
@@ -177,26 +177,39 @@ class Controller():
                         if component == "camera":
                             continue
                         self._send_msg(component, json.dumps(msg))
-                    pass
                 case "order_grabbed":
+                    self.remaining_packages[0]["picked"] = True
+                    self.completed_packages.append(self.remaining_packages.pop[0])
+                    # if no more items to grab in this aisle
+                        # also, if no more orders period, should go back to hub
                     msg = {
                         "command": "start",
                         "param": "180"
                     }
                     self._send_msg("linefollower", json.dumps(msg))
+                    # else, back to start of aisle and find next item
+                    # msg = {
+                    #     "command": "detect_color",
+                    #     "color": "red"
+                    # }
+                    # self._send_msg("camera", json.dumps(msg))
                 case "movement_complete":
                     msg = {
                         "command": "stop"
                     }
                     self._send_msg("linefollower", json.dumps(msg))
                 case "picking_init":
+                    color = self.remaining_packages[0]["color"]
                     msg = {
                         "command": "detect_color",
-                        "color": "red"
+                        "color": color
                     }
                     self._send_msg("camera", json.dumps(msg))
                 case "color_detected":
-                    pass
+                    msg = {
+                        "command": "stop"
+                    }
+                    self._send_msg("linefollower", json.dumps(msg))
                 case "path_blocked":
                     msg = {
                         "command": "stop"
@@ -217,12 +230,14 @@ class Controller():
                 case "intersection_reached":
                     # here, should check what aisle/lane we need to be in and react accordingly.
                     global aisle_num # replace w/ order status
-                    if aisle_num == 1:
+                    aisle_num += 1
+                    if aisle_num == self.remaining_packages[0]["aisle"]:
                         self._send_msg("linefollower", '{"command": "enter"}')
-                        event = "picking_init" #override event
+                        self.process_event_lock.release()
+                        self.process_event("picking_init") #override event
+                        return
                     else:
                         self._send_msg("linefollower", '{"command": "ignore"}')
-                    aisle_num += 1
             self.state_machine.transition(event)
             
     def execution_thread(self):
@@ -251,7 +266,7 @@ class Controller():
                         if validate_order_data(order):
                             break
                         logging.error(f"invalid order received: {data}")
-                    self.current_packages = sorted(order["packages"], key=lambda x: x["aisle"])
+                    self.remaining_packages = sorted(order["packages"], key=lambda x: x["aisle"])
                     logging.info(f"order received: {order}")
                     self.process_event("order_received")
                 case ControllerStates.MovingToAisleState:
