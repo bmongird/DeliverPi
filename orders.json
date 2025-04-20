@@ -1,0 +1,56 @@
+[
+  {
+    "time": 0,
+    "deadline": 101,
+    "packages": [
+      {
+        "aisle": 1,
+        "color": "BLUE"
+      },
+      {
+        "aisle": 0,
+        "color": "BLUE"
+      },
+      {
+        "aisle": 0,
+        "color": "GREEN"
+      }
+    ]
+  },
+  {
+    "time": 8,
+    "deadline": 105,
+    "packages": [
+      {
+        "aisle": 1,
+        "color": "RED"
+      },
+      {
+        "aisle": 2,
+        "color": "BLUE"
+      },
+      {
+        "aisle": 0,
+        "color": "RED"
+      }
+    ]
+  },
+  {
+    "time": 14,
+    "deadline": 56,
+    "packages": [
+      {
+        "aisle": 2,
+        "color": "GREEN"
+      },
+      {
+        "aisle": 1,
+        "color": "GREEN"
+      },
+      {
+        "aisle": 2,
+        "color": "RED"
+      }
+    ]
+  }
+]

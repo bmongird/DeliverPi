@@ -7,7 +7,7 @@ import json
 
 from common import SERVER_PORT, OrderData
 
-TEST_ORDERS_FILE = "messages.json"
+TEST_ORDERS_FILE = "orders.json"
 
 
 class TestOrderData(OrderData):
