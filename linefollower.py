@@ -24,13 +24,13 @@ dealer_socket = context.socket(zmq.DEALER)
 dealer_socket.identity = b"linefollower"
 dealer_socket.connect("tcp://localhost:5575")
 
-ignore_aisle = False
+aisle_var = None
 turn_direction = 0
 
 aisle_condition = threading.Condition()
 
 def msg():
-    global ignore_aisle
+    global aisle_var
     global _is_running
     while True:
         empty, request = dealer_socket.recv_multipart() # removing the prepended filter
@@ -61,12 +61,12 @@ def msg():
         elif request["command"] == "enter":
             #continue down aisle
             with aisle_condition:
-                ignore_aisle = False
+                aisle_var = "enter"
                 turn_direction = 1 if "direction" in request else 0 #TODO: make direction mandatory in the request
                 aisle_condition.notify()
         elif request["command"] == "ignore":
             with aisle_condition:
-                ignore_aisle = True
+                aisle_var = "ignore"
                 aisle_condition.notify()
             # ignore aisle
 
@@ -79,7 +79,8 @@ def turn(direction: int):
 
     :param direction: 0 for left, 1 for right
     """
-    print("Turn called")
+    was_running = _is_running
+    _is_running = False
     turning = True
     yaw = -0.2 if direction == 0 else 0.2
     car.set_velocity(0,90, yaw)
@@ -91,6 +92,7 @@ def turn(direction: int):
         elif direction == 1 and sensor4:
             turning = False
     car.set_velocity(0,90,0)
+    _is_running = was_running
             
 car_speed = 25
 
@@ -98,11 +100,24 @@ car.set_velocity(0,90,0)
 
 while True:
     while _is_running:
-        sensor1, sensor2, sensor3, sensor4 = line.readData() # 读取4路循传感器数据(read 4-channel sensor data)
+        # Averaging sensor data
+        # s = [0,0,0,0]
+        # sensor1, sensor2, sensor3, sensor4 = False
+        # for i in range(0,5):
+        #     sensor1, sensor2, sensor3, sensor4 = line.readData() # 读取4路循传感器数据(read 4-channel sensor data)
+        #     j = 0
+        #     for sensor in [sensor1,sensor2,sensor3,sensor4]:
+        #         if sensor:
+        #             s[j] += 1
+        # j = 0
+        # for sensor in [sensor1, sensor2, sensor3, sensor4]:
+        #     if s[j] >= 3:
+        #         sensor = True
+        sensor1, sensor2, sensor3, sensor4 = line.readData()
         match sensor1, sensor2, sensor3, sensor4:
             case False, False, False, False:
                 car.set_velocity(0,90,0)
-                dealer_socket.send_multipart([b"", "no_line".encode()])
+                # dealer_socket.send_multipart([b"", "no_line".encode()])
             case False, False, False, True:
                 car.set_velocity(10, 90, 0.2)
             case False, False, True, False:
@@ -118,17 +133,17 @@ while True:
                 car.set_velocity(car_speed,90,0)
             case False, True, True, True:
                 car.set_velocity(0,90,0)
-                ignore_aisle = None
+                aisle_var = None
                 dealer_socket.send_multipart([b"", "intersection_reached".encode()])
                 with aisle_condition:
-                    while ignore_aisle == None:
+                    while aisle_var == None:
                         aisle_condition.wait()
-                    if ignore_aisle:
+                    if aisle_var == "ignore":
                         logging.debug("Ignoring aisle")
                         car.set_velocity(car_speed,90,0)
                         # give enough time to clear the aisle
                         time.sleep(0.8)
-                    else:
+                    elif aisle_var == "enter":
                         logging.debug("Entering aisle")
                         turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
@@ -151,38 +166,39 @@ while True:
             case True, True, True, False:
                 # NOTE: Special case because this means we've reached an aisle. Check if we should continue.
                 car.set_velocity(0,90,0)
-                ignore_aisle = None
+                aisle_var = None
                 dealer_socket.send_multipart([b"", "intersection_reached".encode()])
                 with aisle_condition:
-                    while ignore_aisle == None:
+                    while aisle_var == None:
                         aisle_condition.wait()
-                    if ignore_aisle:
+                    if aisle_var == "ignore":
                         logging.debug("Ignoring aisle")
                         car.set_velocity(car_speed,90,0)
                         # give enough time to clear the aisle
                         time.sleep(0.8)
-                    else:
+                    elif aisle_var == "enter":
                         logging.debug("Entering aisle")
                         turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                 
             case True, True, True, True:
                 car.set_velocity(0,90,0)
-                ignore_aisle = None
+                aisle_var = None
                 dealer_socket.send_multipart([b"", "intersection_reached".encode()])
                 with aisle_condition:
-                    while ignore_aisle == None:
+                    while aisle_var == None:
                         aisle_condition.wait()
-                    if ignore_aisle:
+                    if aisle_var == "ignore":
                         logging.debug("Ignoring aisle")
                         car.set_velocity(car_speed,90,0)
                         # give enough time to clear the aisle
                         time.sleep(0.8)
-                    else:
+                    elif aisle_var == "enter":
                         logging.debug("Entering aisle")
                         turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
-                car.set_velocity(0,90,0)
+                    elif aisle_var == "end":
+                        _is_running = False
             case _:
                 car.set_velocity(0,90,0)
         time.sleep(0.02)
