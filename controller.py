@@ -33,7 +33,7 @@ board = rrc.Board()
 
 aisle_num = 0
 
-HUB_HOST = "10.68.200.31"
+HUB_HOST = "192.168.149.67"
 
 class Controller():
     """Singleton class that controls robot execution
@@ -261,11 +261,13 @@ class Controller():
                         event = "to_aisle" #override event to transition to movingtoaislestate
                     else:
                         print(self.remaining_packages[0])
+                        print(f"Aisle num: {aisle_num}")
                         if aisle_num == self.remaining_packages[0]["aisle"]:
                             self._send_msg("linefollower", '{"command": "enter"}')
                             self.process_event_lock.release()
                             self.process_event("picking_init") #override event
                             self.process_event_lock.acquire()
+                            aisle_num += 1
                             return
                         else:
                             self._send_msg("linefollower", '{"command": "ignore"}')
