@@ -252,7 +252,8 @@ class Controller():
                     for component in self.components:
                         self._send_msg(component, json.dumps(msg))
                 case "blocked_timeout":
-                    if current_state.name() == "PickingState":
+                    if current_state == ControllerStates.PickingState:
+                        print("BLOCK TIMEOUT REACHED")
                         # TODO: should come back to item at end. for now, just abandoning it
                         # self.remaining_packages.append(self.remaining_packages.pop(0))
                         msg = f"Failed to grab package {self.remaining_packages[0]}: Could not reach due to obstacle"
@@ -269,7 +270,6 @@ class Controller():
                         self._send_msg("camera", json.dumps(cam_msg))
                         self._send_msg("linefollower", json.dumps(line_msg))
                 case "intersection_reached":
-                    print(f"STATE: {current_state}")
                     # here, should check what aisle/lane we need to be in and react accordingly.
                     if current_state == ControllerStates.ExitAisleState:
                         if len(self.remaining_packages) == 0:
@@ -278,6 +278,22 @@ class Controller():
                         else:
                             event = "to_aisle" #override event to transition to movingtoaislestate
                             self._send_msg("linefollower", '{"command": "enter"}')
+                    elif current_state == ControllerStates.PickingState:
+                        # failed to grab this package. abandon it and move on
+                        msg = f"Failed to grab package {self.remaining_packages[0]}: Not found in aisle"
+                        self.pub_socket.send(msg.encode())
+                        self.remaining_packages[0]["picked"] = False
+                        self.completed_packages.append(self.remaining_packages.pop(0))
+                        event = "not_detected"
+                        line_msg = {
+                            "command": "start",
+                            "param": 180
+                        }
+                        cam_msg = {
+                            "command": "stop"
+                        }
+                        self._send_msg("camera", json.dumps(cam_msg))
+                        self._send_msg("linefollower", json.dumps(line_msg))
                     else:
                         print(self.remaining_packages[0])
                         print(f"Aisle num: {aisle_num}")
