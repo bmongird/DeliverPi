@@ -74,6 +74,7 @@ def turn(direction: int):
 
     :param direction: 0 for left, 1 for right
     """
+    print("Turn called")
     turning = True
     yaw = -0.2 if direction == 0 else 0.2
     car.set_velocity(0,90, yaw)
@@ -86,6 +87,8 @@ def turn(direction: int):
             turning = False
             
 car_speed = 20
+
+car.set_velocity(0,90,0)
 
 while True:
     while _is_running:

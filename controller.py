@@ -33,7 +33,7 @@ board = rrc.Board()
 
 aisle_num = 0
 
-HUB_HOST = "localhost"
+HUB_HOST = "10.68.200.31"
 
 class Controller():
     """Singleton class that controls robot execution
@@ -179,7 +179,8 @@ class Controller():
                         self._send_msg(component, json.dumps(msg))
                 case "order_grabbed":
                     self.remaining_packages[0]["picked"] = True
-                    self.completed_packages.append(self.remaining_packages.pop[0])
+                    self.completed_packages.append(self.remaining_packages.pop(0))
+                    logging.info(f"Successfully grabbed package {self.completed_packages[-1]}")
                     # if no more items to grab in this aisle
                         # also, if no more orders period, should go back to hub
                     msg = {
@@ -199,6 +200,7 @@ class Controller():
                     }
                     self._send_msg("linefollower", json.dumps(msg))
                 case "picking_init":
+                    time.sleep(1) #give time to enter aisle
                     color = self.remaining_packages[0]["color"]
                     msg = {
                         "command": "detect_color",
@@ -230,14 +232,16 @@ class Controller():
                 case "intersection_reached":
                     # here, should check what aisle/lane we need to be in and react accordingly.
                     global aisle_num # replace w/ order status
-                    aisle_num += 1
+                    print(self.remaining_packages[0])
                     if aisle_num == self.remaining_packages[0]["aisle"]:
                         self._send_msg("linefollower", '{"command": "enter"}')
                         self.process_event_lock.release()
                         self.process_event("picking_init") #override event
+                        self.process_event_lock.acquire()
                         return
                     else:
                         self._send_msg("linefollower", '{"command": "ignore"}')
+                    aisle_num += 1
             self.state_machine.transition(event)
             
     def execution_thread(self):

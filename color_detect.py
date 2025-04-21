@@ -203,7 +203,7 @@ def msg():
         elif request["command"] == "detect_color":
             if __isRunning:
                 dealer_socket.send_multipart([b"", "NEW COLOR RCVD".encode()]) # informing that the old request has been overridden
-            setTargetColor(request["color"])
+            setTargetColor(str.lower(request["color"]))
             logging.info(f"Looking for {target_color}...")
             start()
         elif request["command"] == "stop":
