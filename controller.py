@@ -164,12 +164,14 @@ class Controller():
 
         :param event: event to be processed
         """
+        global aisle_num
         with self.process_event_lock:
             current_state = self.state_machine.state
             next_state = self.state_machine.get_next_state(event)
             match event:
                 case "order_received":
                     # start line tracking thread to correct aisle
+                    aisle_num = 0
                     msg = {
                         "command": "start"
                     }
@@ -250,11 +252,24 @@ class Controller():
                     for component in self.components:
                         self._send_msg(component, json.dumps(msg))
                 case "blocked_timeout":
-                    # still blocked after a timeout. move to next item and return to current one
-                    pass
+                    if current_state == ControllerStates.PickingState:
+                        # TODO: should come back to item at end. for now, just abandoning it
+                        # self.remaining_packages.append(self.remaining_packages.pop(0))
+                        msg = f"Failed to grab package {self.remaining_packages[0]}: Could not reach due to obstacle"
+                        self.pub_socket.send(msg.encode())
+                        self.remaining_packages.pop(0)
+                        event = "not_detected"
+                        line_msg = {
+                            "command": "start",
+                            "param": 180
+                        }
+                        cam_msg = {
+                            "command": "stop"
+                        }
+                        self._send_msg("camera", json.dumps(cam_msg))
+                        self._send_msg("linefollower", json.dumps(line_msg))
                 case "intersection_reached":
                     # here, should check what aisle/lane we need to be in and react accordingly.
-                    global aisle_num # replace w/ order status
                     if current_state == ControllerStates.ExitAisleState:
                         if len(self.remaining_packages) == 0:
                             event = "to_hub"
@@ -275,6 +290,31 @@ class Controller():
                         else:
                             self._send_msg("linefollower", '{"command": "ignore"}')
                         aisle_num += 1
+                case "no_line":
+                    if current_state == ControllerStates.MovingToHubState:
+                        print("Made it back to hub!")
+                        event = "movement_complete"
+                        msg = {
+                            "command": "turn",
+                            "direction": "left"
+                        }
+                        self._send_msg("linefollower", json.dumps(msg))
+                    elif current_state == ControllerStates.PickingState:
+                        # failed to grab this package. abandon it and move on
+                        msg = f"Failed to grab package {self.remaining_packages[0]}: Not found in aisle"
+                        self.pub_socket.send(msg.encode())
+                        self.remaining_packages[0]["picked"] = False
+                        self.completed_packages.append(self.remaining_packages.pop(0))
+                        event = "not_detected"
+                        line_msg = {
+                            "command": "start",
+                            "param": 180
+                        }
+                        cam_msg = {
+                            "command": "stop"
+                        }
+                        self._send_msg("camera", json.dumps(cam_msg))
+                        self._send_msg("linefollower", json.dumps(line_msg))
             self.state_machine.transition(event)
             
     def execution_thread(self):

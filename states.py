@@ -95,6 +95,8 @@ class ControllerStates:
                     return ControllerStates.MovingToAisleState
                 case "to_hub":
                     return ControllerStates.MovingToHubState
+                case "path_blocked":
+                    return ControllerStates.PathBlockedState
                 case _:
                     return ControllerStates.ExitAisleState
                 
@@ -119,6 +121,8 @@ class ControllerStates:
                     return ControllerStates.PathBlockedState
                 case "color_detected":
                     return ControllerStates.GrabbingState
+                case "not_detected":
+                    return ControllerStates.ExitAisleState
                 case _:
                     return ControllerStates.PickingState 
                 
