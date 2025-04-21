@@ -258,6 +258,7 @@ class Controller():
                     global aisle_num # replace w/ order status
                     if current_state == ControllerStates.ExitAisleState:
                         self._send_msg("linefollower", '{"command": "enter"}')
+                        event = "to_aisle" #override event to transition to movingtoaislestate
                     else:
                         print(self.remaining_packages[0])
                         if aisle_num == self.remaining_packages[0]["aisle"]:
