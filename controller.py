@@ -193,13 +193,22 @@ class Controller():
                                 "color": color
                             }
                             self._send_msg("camera", json.dumps(msg))
+                        else:
+                            msg = {
+                                "command": "start",
+                                "param": "180"
+                            }
+                            event = "exiting"
+                            self._send_msg("linefollower", json.dumps(msg))
                     else:
+                        print("all done!")
                         msg = {
-                            "command": "start",
-                            "param": "180"
+                            "command": "stop"
                         }
-                        event = "exiting"
-                        self._send_msg("linefollower", json.dumps(msg))
+                        for component in self.components:
+                            if component == "ultrasonic":
+                                continue
+                            self._send_msg(component, json.dumps(msg))
                     # if no more items to grab in this aisle
                         # also, if no more orders period, should go back to hub
 
