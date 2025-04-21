@@ -49,7 +49,7 @@ def msg():
             logging.info(f"Starting line following")
             # maybe send back an acknowledge?
         elif request["command"] == "turn":
-            direction = 0 if request["direction"] == "left" else 1
+            direction = 1 if request["direction"] else 0
             turn(direction)
         elif request["command"] == "stop":
             _is_running = False
@@ -99,7 +99,7 @@ def turn(direction: int):
     car.set_velocity(0,90,0)
     _is_running = was_running
             
-car_speed = 25
+car_speed = 30
 
 car.set_velocity(0,90,0)
 
