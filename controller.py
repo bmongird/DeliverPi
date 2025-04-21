@@ -181,13 +181,28 @@ class Controller():
                     self.remaining_packages[0]["picked"] = True
                     self.completed_packages.append(self.remaining_packages.pop(0))
                     logging.info(f"Successfully grabbed package {self.completed_packages[-1]}")
+                    if len(self.remaining_packages) > 0:
+                        if self.remaining_packages[0]["aisle"] == self.completed_packages[-1]["aisle"]:
+                            # back up and picking init          
+                            # implement this in line follower instead for robustness 
+                            car.set_velocity(-20,90,0)
+                            time.sleep(1)
+                            color = self.remaining_packages[0]["color"]
+                            msg = {
+                                "command": "detect_color",
+                                "color": color
+                            }
+                            self._send_msg("camera", json.dumps(msg))
+                    else:
+                        msg = {
+                            "command": "start",
+                            "param": "180"
+                        }
+                        event = "exiting"
+                        self._send_msg("linefollower", json.dumps(msg))
                     # if no more items to grab in this aisle
                         # also, if no more orders period, should go back to hub
-                    msg = {
-                        "command": "start",
-                        "param": "180"
-                    }
-                    self._send_msg("linefollower", json.dumps(msg))
+
                     # else, back to start of aisle and find next item
                     # msg = {
                     #     "command": "detect_color",
@@ -232,16 +247,19 @@ class Controller():
                 case "intersection_reached":
                     # here, should check what aisle/lane we need to be in and react accordingly.
                     global aisle_num # replace w/ order status
-                    print(self.remaining_packages[0])
-                    if aisle_num == self.remaining_packages[0]["aisle"]:
+                    if current_state == ControllerStates.ExitAisleState:
                         self._send_msg("linefollower", '{"command": "enter"}')
-                        self.process_event_lock.release()
-                        self.process_event("picking_init") #override event
-                        self.process_event_lock.acquire()
-                        return
                     else:
-                        self._send_msg("linefollower", '{"command": "ignore"}')
-                    aisle_num += 1
+                        print(self.remaining_packages[0])
+                        if aisle_num == self.remaining_packages[0]["aisle"]:
+                            self._send_msg("linefollower", '{"command": "enter"}')
+                            self.process_event_lock.release()
+                            self.process_event("picking_init") #override event
+                            self.process_event_lock.acquire()
+                            return
+                        else:
+                            self._send_msg("linefollower", '{"command": "ignore"}')
+                        aisle_num += 1
             self.state_machine.transition(event)
             
     def execution_thread(self):

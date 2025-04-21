@@ -43,6 +43,8 @@ def msg():
             if "param" in request:
                 if request["param"] == "180":
                     turn(0)
+                elif request["param"] == "reverse":
+                    
             _is_running = True
             logging.info(f"Starting line following")
             # maybe send back an acknowledge?

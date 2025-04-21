@@ -127,6 +127,8 @@ class ControllerStates:
             match event:
                 case "order_grabbed":
                     return ControllerStates.PickingState
+                case "exiting":
+                    return ControllerStates.ExitAisleState
                 case _:
                     return ControllerStates.GrabbingState 
         
