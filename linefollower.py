@@ -111,7 +111,21 @@ while True:
             case False, True, True, False:
                 car.set_velocity(car_speed,90,0)
             case False, True, True, True:
-                turn(1)
+                car.set_velocity(0,90,0)
+                ignore_aisle = None
+                dealer_socket.send_multipart([b"", "intersection_reached".encode()])
+                with aisle_condition:
+                    while ignore_aisle == None:
+                        aisle_condition.wait()
+                    if ignore_aisle:
+                        logging.debug("Ignoring aisle")
+                        car.set_velocity(car_speed,90,0)
+                        # give enough time to clear the aisle
+                        time.sleep(0.8)
+                    else:
+                        logging.debug("Entering aisle")
+                        turn(0)
+                        dealer_socket.send_multipart([b"", "aisle_entered".encode()])
             case True, False, False, False:
                 car.set_velocity(10, 90, -0.2)
             case True, False, False, True:
@@ -147,7 +161,21 @@ while True:
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                 
             case True, True, True, True:
-                #invalid state
+                car.set_velocity(0,90,0)
+                ignore_aisle = None
+                dealer_socket.send_multipart([b"", "intersection_reached".encode()])
+                with aisle_condition:
+                    while ignore_aisle == None:
+                        aisle_condition.wait()
+                    if ignore_aisle:
+                        logging.debug("Ignoring aisle")
+                        car.set_velocity(car_speed,90,0)
+                        # give enough time to clear the aisle
+                        time.sleep(0.8)
+                    else:
+                        logging.debug("Entering aisle")
+                        turn(0)
+                        dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                 car.set_velocity(0,90,0)
             case _:
                 car.set_velocity(0,90,0)

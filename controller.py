@@ -196,7 +196,7 @@ class Controller():
                         else:
                             msg = {
                                 "command": "start",
-                                "param": "180"
+                                "param": 180
                             }
                             event = "exiting"
                             self._send_msg("linefollower", json.dumps(msg))
