@@ -25,6 +25,7 @@ dealer_socket.identity = b"linefollower"
 dealer_socket.connect("tcp://localhost:5575")
 
 ignore_aisle = False
+turn_direction = 0
 
 aisle_condition = threading.Condition()
 
@@ -58,11 +59,11 @@ def msg():
             #continue down aisle
             with aisle_condition:
                 ignore_aisle = False
+                turn_direction = 1 if "direction" in request else 0
                 aisle_condition.notify()
         elif request["command"] == "ignore":
             with aisle_condition:
                 ignore_aisle = True
-                print("notifying")
                 aisle_condition.notify()
             # ignore aisle
 
@@ -124,7 +125,7 @@ while True:
                         time.sleep(0.8)
                     else:
                         logging.debug("Entering aisle")
-                        turn(0)
+                        turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
             case True, False, False, False:
                 car.set_velocity(10, 90, -0.2)
@@ -157,7 +158,7 @@ while True:
                         time.sleep(0.8)
                     else:
                         logging.debug("Entering aisle")
-                        turn(0)
+                        turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                 
             case True, True, True, True:
@@ -174,7 +175,7 @@ while True:
                         time.sleep(0.8)
                     else:
                         logging.debug("Entering aisle")
-                        turn(0)
+                        turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                 car.set_velocity(0,90,0)
             case _:

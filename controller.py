@@ -201,14 +201,13 @@ class Controller():
                             event = "exiting"
                             self._send_msg("linefollower", json.dumps(msg))
                     else:
-                        print("all done!")
+                        print("All packages collected. Returning to hub")
+                        event = "exiting"
                         msg = {
-                            "command": "stop"
+                            "command": "start",
+                            "param": 180
                         }
-                        for component in self.components:
-                            if component == "ultrasonic":
-                                continue
-                            self._send_msg(component, json.dumps(msg))
+                        self._send_msg("linefollower", json.dumps(msg))
                     # if no more items to grab in this aisle
                         # also, if no more orders period, should go back to hub
 
@@ -257,8 +256,12 @@ class Controller():
                     # here, should check what aisle/lane we need to be in and react accordingly.
                     global aisle_num # replace w/ order status
                     if current_state == ControllerStates.ExitAisleState:
-                        self._send_msg("linefollower", '{"command": "enter"}')
-                        event = "to_aisle" #override event to transition to movingtoaislestate
+                        if len(self.remaining_packages) == 0:
+                            event = "to_hub"
+                            self._send_msg("linefollower", '{"command": "enter", "direction": "right"}')
+                        else:
+                            event = "to_aisle" #override event to transition to movingtoaislestate
+                            self._send_msg("linefollower", '{"command": "enter"}')
                     else:
                         print(self.remaining_packages[0])
                         print(f"Aisle num: {aisle_num}")
