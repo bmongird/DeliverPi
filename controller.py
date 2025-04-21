@@ -295,19 +295,19 @@ class Controller():
                         self._send_msg("camera", json.dumps(cam_msg))
                         line_msg = { "command": "end"}
                         self._send_msg("linefollower", json.dumps(line_msg))
-                    else:
-                        print(self.remaining_packages[0])
+                    elif current_state == ControllerStates.MovingToAisleState:
                         print(f"Aisle num: {aisle_num}")
-                        if aisle_num == self.remaining_packages[0]["aisle"]:
-                            self._send_msg("linefollower", '{"command": "enter"}')
-                            self.process_event_lock.release()
-                            self.process_event("picking_init") #override event
-                            self.process_event_lock.acquire()
+                        if self.remaining_packages > 0:
+                            if aisle_num == self.remaining_packages[0]["aisle"]:
+                                self._send_msg("linefollower", '{"command": "enter"}')
+                                self.process_event_lock.release()
+                                self.process_event("picking_init") #override event
+                                self.process_event_lock.acquire()
+                                aisle_num += 1
+                                return
+                            else:
+                                self._send_msg("linefollower", '{"command": "ignore"}')
                             aisle_num += 1
-                            return
-                        else:
-                            self._send_msg("linefollower", '{"command": "ignore"}')
-                        aisle_num += 1
                 case "no_line":
                     if current_state == ControllerStates.MovingToHubState:
                         print("Made it back to hub!")
@@ -317,6 +317,22 @@ class Controller():
                             "direction": "left"
                         }
                         self._send_msg("linefollower", json.dumps(msg))
+                    elif current_state == ControllerStates.PickingState:
+                        # failed to grab this package. abandon it and move on
+                        msg = f"Failed to grab package {self.remaining_packages[0]}: Not found in aisle"
+                        self.pub_socket.send(msg.encode())
+                        self.remaining_packages[0]["picked"] = False
+                        self.completed_packages.append(self.remaining_packages.pop(0))
+                        event = "not_detected"
+                        line_msg = {
+                            "command": "start",
+                            "param": 180
+                        }
+                        cam_msg = {
+                            "command": "stop"
+                        }
+                        self._send_msg("camera", json.dumps(cam_msg))
+                        self._send_msg("linefollower", json.dumps(line_msg))
             self.state_machine.transition(event)
             
     def execution_thread(self):
