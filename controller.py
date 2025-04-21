@@ -252,7 +252,7 @@ class Controller():
                     for component in self.components:
                         self._send_msg(component, json.dumps(msg))
                 case "blocked_timeout":
-                    if current_state == ControllerStates.PickingState:
+                    if current_state.name() == "PickingState":
                         # TODO: should come back to item at end. for now, just abandoning it
                         # self.remaining_packages.append(self.remaining_packages.pop(0))
                         msg = f"Failed to grab package {self.remaining_packages[0]}: Could not reach due to obstacle"
@@ -269,6 +269,7 @@ class Controller():
                         self._send_msg("camera", json.dumps(cam_msg))
                         self._send_msg("linefollower", json.dumps(line_msg))
                 case "intersection_reached":
+                    print(f"STATE: {current_state}")
                     # here, should check what aisle/lane we need to be in and react accordingly.
                     if current_state == ControllerStates.ExitAisleState:
                         if len(self.remaining_packages) == 0:

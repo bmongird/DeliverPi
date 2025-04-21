@@ -79,6 +79,7 @@ def turn(direction: int):
 
     :param direction: 0 for left, 1 for right
     """
+    global _is_running
     was_running = _is_running
     _is_running = False
     turning = True
