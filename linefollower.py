@@ -49,7 +49,7 @@ def msg():
             logging.info(f"Starting line following")
             # maybe send back an acknowledge?
         elif request["command"] == "turn":
-            direction = 0 if request["param"] == "left" else 1
+            direction = 0 if request["direction"] == "left" else 1
             turn(direction)
         elif request["command"] == "stop":
             _is_running = False
@@ -58,6 +58,10 @@ def msg():
         elif request["command"] == "resume":
             _is_running = True
             logging.info(f"Resuming linefollower")
+        elif request["command"] == "end":
+            with aisle_condition:
+                aisle_var = "end"
+                aisle_condition.notify()
         elif request["command"] == "enter":
             #continue down aisle
             with aisle_condition:
@@ -117,8 +121,8 @@ while True:
         sensor1, sensor2, sensor3, sensor4 = line.readData()
         match sensor1, sensor2, sensor3, sensor4:
             case False, False, False, False:
-                car.set_velocity(0,90,0)
-                # dealer_socket.send_multipart([b"", "no_line".encode()])
+                car.set_velocity(0,90,-.1)
+                dealer_socket.send_multipart([b"", "no_line".encode()])
             case False, False, False, True:
                 car.set_velocity(10, 90, 0.2)
             case False, False, True, False:
@@ -199,7 +203,7 @@ while True:
                         turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                     elif aisle_var == "end":
-                        _is_running = False
+                        turn(0)
             case _:
                 car.set_velocity(0,90,0)
         time.sleep(0.02)
