@@ -92,6 +92,7 @@ def start():
     global target_color
     reset()
     board.pwm_servo_set_position(0.15, [[2, 3000]])
+    time.sleep(1)
     __isRunning = True
     logging.info(f"ColorDetect started for {target_color}")
 
@@ -144,7 +145,7 @@ def getAreaMaxContour(contours):
         contour_area_temp = math.fabs(cv2.contourArea(c))  # 计算轮廓面积(calculate contour area)
         if contour_area_temp > contour_area_max:
             contour_area_max = contour_area_temp
-            if contour_area_temp > 100000:  # 只有在面积大于300时，最大面积的轮廓才是有效的，以过滤干扰(only the maximal contour with an area greater than 300 is considered valid to filter out interference)
+            if contour_area_temp > 1000:  # 只有在面积大于300时，最大面积的轮廓才是有效的，以过滤干扰(only the maximal contour with an area greater than 300 is considered valid to filter out interference)
                 area_max_contour = c
 
     return area_max_contour, contour_area_max  # 返回最大的轮廓(return the maximal contour)

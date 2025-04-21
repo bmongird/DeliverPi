@@ -273,8 +273,11 @@ class Controller():
                     # here, should check what aisle/lane we need to be in and react accordingly.
                     if current_state == ControllerStates.ExitAisleState:
                         if len(self.remaining_packages) == 0:
+                            aisle_num -= 1
                             event = "to_hub"
-                            self._send_msg("linefollower", '{"command": "turn", "direction": "right"}')
+                            self._send_msg("linefollower", '{"command": "enter", "direction": "right"}')
+                            # time.sleep(0.5)
+                            # self._send_msg("linefollower", '{"command": "turn", "direction": "right"}')
                         else:
                             event = "to_aisle" #override event to transition to movingtoaislestate
                             self._send_msg("linefollower", '{"command": "enter"}')
@@ -297,7 +300,7 @@ class Controller():
                         self._send_msg("linefollower", json.dumps(line_msg))
                     elif current_state == ControllerStates.MovingToAisleState:
                         print(f"Aisle num: {aisle_num}")
-                        if self.remaining_packages > 0:
+                        if len(self.remaining_packages) > 0:
                             if aisle_num == self.remaining_packages[0]["aisle"]:
                                 self._send_msg("linefollower", '{"command": "enter"}')
                                 self.process_event_lock.release()
@@ -308,16 +311,22 @@ class Controller():
                             else:
                                 self._send_msg("linefollower", '{"command": "ignore"}')
                             aisle_num += 1
+                    elif current_state == ControllerStates.MovingToHubState:
+                        aisle_num -= 1
+                        print(f"Aisle num: {aisle_num}")
+                        if aisle_num == -1:
+                            print("Made it back to hub!")
+                            event = "movement_complete"
+                            msg = {
+                                "command": "turn",
+                                "direction": "left"
+                            }
+                            self._send_msg("linefollower", json.dumps(msg))
+                            time.sleep(5)
+                        else:
+                            self._send_msg("linefollower", '{"command": "ignore"}')
                 case "no_line":
-                    if current_state == ControllerStates.MovingToHubState:
-                        print("Made it back to hub!")
-                        event = "movement_complete"
-                        msg = {
-                            "command": "turn",
-                            "direction": "left"
-                        }
-                        self._send_msg("linefollower", json.dumps(msg))
-                    elif current_state == ControllerStates.PickingState:
+                    if current_state == ControllerStates.PickingState:
                         # failed to grab this package. abandon it and move on
                         msg = f"Failed to grab package {self.remaining_packages[0]}: Not found in aisle"
                         self.pub_socket.send(msg.encode())

@@ -15,6 +15,9 @@ import yaml_handle
 import HiwonderSDK.mecanum as mecanum
 import HiwonderSDK.FourInfrared as infrared
 
+logging.basicConfig(filename="logs.txt", level=logging.DEBUG, format=f'[LINE FOLLOWER] %(asctime)s - %(levelname)s - %(message)s')
+
+
 car = mecanum.MecanumChassis()
 line = infrared.FourInfrared()
 _is_running = False
@@ -32,6 +35,7 @@ aisle_condition = threading.Condition()
 def msg():
     global aisle_var
     global _is_running
+    global turn_direction
     while True:
         empty, request = dealer_socket.recv_multipart() # removing the prepended filter
         request = json.loads(request)
@@ -41,12 +45,16 @@ def msg():
         if request["command"] == "check":
             dealer_socket.send_multipart([b"", "ONLINE".encode()])
         elif request["command"] == "start":
+            _is_running = True
+            logging.info("At start. Initiating turn")
             if "param" in request:
                 if request["param"] == 180:
                     turn(0)
+                elif request["param"] == 90:
+                    turn(1)
                 # elif request["param"] == "reverse":
-            _is_running = True
             logging.info(f"Starting line following")
+            print(_is_running)
             # maybe send back an acknowledge?
         elif request["command"] == "turn":
             direction = 1 if request["direction"] else 0
@@ -97,11 +105,14 @@ def turn(direction: int):
         elif direction == 1 and sensor4:
             turning = False
     car.set_velocity(0,90,0)
+    print(f"was_running val: {was_running}")
     _is_running = was_running
             
 car_speed = 30
 
 car.set_velocity(0,90,0)
+
+no_line_count = 0
 
 while True:
     while _is_running:
@@ -121,8 +132,21 @@ while True:
         sensor1, sensor2, sensor3, sensor4 = line.readData()
         match sensor1, sensor2, sensor3, sensor4:
             case False, False, False, False:
-                car.set_velocity(0,90,-.1)
-                dealer_socket.send_multipart([b"", "no_line".encode()])
+                # no_line_count += 1
+                looping = True
+                count = 0
+                while looping:
+                    count += 1
+                    sensor1, sensor2, sensor3, sensor4 = line.readData()
+                    if sensor1 == False and sensor2 == False and sensor3 == False and sensor4 == False:
+                        no_line_count += 1
+                        time.sleep(0.1)
+                    if no_line_count == 10:# should be looping here
+                        no_line_count = 0
+                        car.set_velocity(0,90,-.1)
+                        dealer_socket.send_multipart([b"", "no_line".encode()])
+                    if count == 10:
+                        looping = False
             case False, False, False, True:
                 car.set_velocity(10, 90, 0.2)
             case False, False, True, False:
