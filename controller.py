@@ -318,11 +318,20 @@ class Controller():
                             print("Made it back to hub!")
                             event = "movement_complete"
                             msg = {
-                                "command": "turn",
-                                "direction": "left"
+                                "command": "end"
                             }
                             self._send_msg("linefollower", json.dumps(msg))
-                            time.sleep(5)
+                            time.sleep(3)
+                            line_msg = { "command": "stop"}
+                            self._send_msg("linefollower", json.dumps(line_msg))
+                            
+                            for i in range(0,10):
+                                board.set_buzzer(1500, 0.1, 0.9, 1)
+                                board.set_rgb([[1, r, g, b], [2, r, g, b]])
+                                r -= 10
+                                g -= 55
+                                b -= 30
+                                time.sleep(0.3)
                         else:
                             self._send_msg("linefollower", '{"command": "ignore"}')
                 case "no_line":
@@ -386,9 +395,9 @@ class Controller():
                     for i in range (0,5):
                         board.set_buzzer(1900, 0.1, 0.9, 1)
                         board.set_rgb([[1, r, g, b], [2, r, g, b]])
-                        r -= 55
-                        g -= 25
-                        b -= 35
+                        r -= 10
+                        g -= 55
+                        b -= 30
                         time.sleep(0.5)
                     self.process_event("order_grabbed")
                     

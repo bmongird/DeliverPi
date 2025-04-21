@@ -86,7 +86,7 @@ msg_thread = threading.Thread(target=msg)
 msg_thread.daemon = True
 msg_thread.start()
 
-def turn(direction: int):
+def turn(direction: int, timesleep: float = 0.3):
     """Function to control vehicle aisle turning
 
     :param direction: 0 for left, 1 for right
@@ -97,7 +97,7 @@ def turn(direction: int):
     turning = True
     yaw = -0.2 if direction == 0 else 0.2
     car.set_velocity(0,90, yaw)
-    time.sleep(0.3)
+    time.sleep(timesleep)
     while turning:
         sensor1, sensor2, sensor3, sensor4 = line.readData()
         if direction == 0 and sensor1:
@@ -176,6 +176,8 @@ while True:
                         logging.debug("Entering aisle")
                         turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
+                    elif aisle_var == "end":
+                        turn(0, 1.5)
             case True, False, False, False:
                 car.set_velocity(10, 90, -0.2)
             case True, False, False, True:
@@ -209,6 +211,8 @@ while True:
                         logging.debug("Entering aisle")
                         turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
+                    elif aisle_var == "end":
+                        turn(0, 1.5)
                 
             case True, True, True, True:
                 car.set_velocity(0,90,0)
@@ -227,7 +231,7 @@ while True:
                         turn(turn_direction)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                     elif aisle_var == "end":
-                        turn(0)
+                        turn(0, 1.5)
             case _:
                 car.set_velocity(0,90,0)
         time.sleep(0.02)

@@ -270,6 +270,9 @@ def run(img):
     if max_area > 2500:  # 有找到最大面积(the maximal area is found)
         rect = cv2.minAreaRect(areaMaxContour_max)
         box = np.intp(cv2.boxPoints(rect))
+        center_x, center_y = rect[0]  # rect[0] gives the (x, y) center
+        img_center_x = img.shape[1] / 2
+        img_center_y = img.shape[0] / 2
         
         cv2.drawContours(img, [box], -1, range_rgb[color_area_max], 2)
         if not start_pick_up:
