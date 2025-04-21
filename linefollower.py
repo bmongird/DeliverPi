@@ -41,10 +41,9 @@ def msg():
             dealer_socket.send_multipart([b"", "ONLINE".encode()])
         elif request["command"] == "start":
             if "param" in request:
-                if request["param"] == "180":
+                if request["param"] == 180:
                     turn(0)
-                elif request["param"] == "reverse":
-                    
+                # elif request["param"] == "reverse":
             _is_running = True
             logging.info(f"Starting line following")
             # maybe send back an acknowledge?
