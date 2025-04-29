@@ -267,42 +267,48 @@ def run(img):
                     max_area = area_max
                     color_area_max = target_color
                     areaMaxContour_max = areaMaxContour
-    if max_area > 2500:  # 有找到最大面积(the maximal area is found)
+    if max_area > 2500 and max_area < 15000:  # 有找到最大面积(the maximal area is found)
         rect = cv2.minAreaRect(areaMaxContour_max)
         box = np.intp(cv2.boxPoints(rect))
         center_x, center_y = rect[0]  # rect[0] gives the (x, y) center
         img_center_x = img.shape[1] / 2
         img_center_y = img.shape[0] / 2
         
-        cv2.drawContours(img, [box], -1, range_rgb[color_area_max], 2)
-        if not start_pick_up:
-            if color_area_max == 'red':  # 红色最大(maximum red)
-                color = 1
-            elif color_area_max == 'green':  # 绿色最大(maximum green)
-                color = 2
-            elif color_area_max == 'blue':  # 蓝色最大(maximum blue)
-                color = 3
-            else:
-                color = 0
-            color_list.append(color)
-            if len(color_list) == 3:  # 多次判断(multiple detection)
-                # 取平均值(get average value)
-                color = np.mean(np.array(color_list))
-                color_list = []
-                start_pick_up = True
-                if color == 1:
-                    detect_color = 'red'
-                    draw_color = range_rgb["red"]
-                elif color == 2:
-                    detect_color = 'green'
-                    draw_color = range_rgb["green"]
-                elif color == 3:
-                    detect_color = 'blue'
-                    draw_color = range_rgb["blue"]
+        tolerance_x = img.shape[1] * 0.2  # 30% of image width
+        tolerance_y = img.shape[0] * 0.2  # 30% of image height
+
+        is_centered = (abs(center_x - img_center_x) < tolerance_x) and (abs(center_y - img_center_y) < tolerance_y)
+        
+        if is_centered:
+            cv2.drawContours(img, [box], -1, range_rgb[color_area_max], 2)
+            if not start_pick_up:
+                if color_area_max == 'red':  # 红色最大(maximum red)
+                    color = 1
+                elif color_area_max == 'green':  # 绿色最大(maximum green)
+                    color = 2
+                elif color_area_max == 'blue':  # 蓝色最大(maximum blue)
+                    color = 3
                 else:
-                    start_pick_up = False
-                    detect_color = 'None'
-                    draw_color = range_rgb["black"]
+                    color = 0
+                color_list.append(color)
+                if len(color_list) == 3:  # 多次判断(multiple detection)
+                    # 取平均值(get average value)
+                    color = np.mean(np.array(color_list))
+                    color_list = []
+                    start_pick_up = True
+                    if color == 1:
+                        detect_color = 'red'
+                        draw_color = range_rgb["red"]
+                    elif color == 2:
+                        detect_color = 'green'
+                        draw_color = range_rgb["green"]
+                    elif color == 3:
+                        detect_color = 'blue'
+                        draw_color = range_rgb["blue"]
+                    else:
+                        start_pick_up = False
+                        detect_color = 'None'
+                        draw_color = range_rgb["black"]
     else:
         if not start_pick_up:
             detect_color = 'None'

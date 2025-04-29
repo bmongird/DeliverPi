@@ -32,6 +32,30 @@ turn_direction = 0
 
 aisle_condition = threading.Condition()
 
+
+def turn(direction: int, timesleep: float = 0.3, speed: int = 0):
+    """Function to control vehicle aisle turning
+
+    :param direction: 0 for left, 1 for right
+    """
+    global _is_running
+    was_running = _is_running
+    _is_running = False
+    turning = True
+    yaw = -0.2 if direction == 0 else 0.2
+    car.set_velocity(speed,90, yaw)
+    time.sleep(timesleep)
+    while turning:
+        sensor1, sensor2, sensor3, sensor4 = line.readData()
+        if direction == 0 and sensor1:
+            turning = False
+        elif direction == 1 and sensor4:
+            turning = False
+    car.set_velocity(0,90,0)
+    print(f"was_running val: {was_running}")
+    _is_running = was_running
+            
+            
 def msg():
     global aisle_var
     global _is_running
@@ -54,7 +78,6 @@ def msg():
                     turn(1)
                 # elif request["param"] == "reverse":
             logging.info(f"Starting line following")
-            print(_is_running)
             # maybe send back an acknowledge?
         elif request["command"] == "turn":
             direction = 1 if request["direction"] else 0
@@ -67,16 +90,20 @@ def msg():
             _is_running = True
             logging.info(f"Resuming linefollower")
         elif request["command"] == "end":
+            aisle_var = None
             with aisle_condition:
                 aisle_var = "end"
                 aisle_condition.notify()
         elif request["command"] == "enter":
+            aisle_var = None
             #continue down aisle
             with aisle_condition:
                 aisle_var = "enter"
+                print("secured condition var in msg")
                 turn_direction = 1 if "direction" in request else 0 #TODO: make direction mandatory in the request
                 aisle_condition.notify()
         elif request["command"] == "ignore":
+            aisle_var = None
             with aisle_condition:
                 aisle_var = "ignore"
                 aisle_condition.notify()
@@ -86,28 +113,6 @@ msg_thread = threading.Thread(target=msg)
 msg_thread.daemon = True
 msg_thread.start()
 
-def turn(direction: int, timesleep: float = 0.3):
-    """Function to control vehicle aisle turning
-
-    :param direction: 0 for left, 1 for right
-    """
-    global _is_running
-    was_running = _is_running
-    _is_running = False
-    turning = True
-    yaw = -0.2 if direction == 0 else 0.2
-    car.set_velocity(0,90, yaw)
-    time.sleep(timesleep)
-    while turning:
-        sensor1, sensor2, sensor3, sensor4 = line.readData()
-        if direction == 0 and sensor1:
-            turning = False
-        elif direction == 1 and sensor4:
-            turning = False
-    car.set_velocity(0,90,0)
-    print(f"was_running val: {was_running}")
-    _is_running = was_running
-            
 car_speed = 30
 
 car.set_velocity(0,90,0)
@@ -118,17 +123,21 @@ while True:
     while _is_running:
         # Averaging sensor data
         # s = [0,0,0,0]
-        # sensor1, sensor2, sensor3, sensor4 = False
-        # for i in range(0,5):
+        # sensor1, sensor2, sensor3, sensor4 = [False, False, False, False]
+        # for i in range(0,3):
         #     sensor1, sensor2, sensor3, sensor4 = line.readData() # 读取4路循传感器数据(read 4-channel sensor data)
         #     j = 0
         #     for sensor in [sensor1,sensor2,sensor3,sensor4]:
         #         if sensor:
         #             s[j] += 1
+        #         j +=1
         # j = 0
         # for sensor in [sensor1, sensor2, sensor3, sensor4]:
-        #     if s[j] >= 3:
+        #     if s[j] >= 2:
         #         sensor = True
+        #     else:
+        #         sensor = False
+        #     j +=1
         sensor1, sensor2, sensor3, sensor4 = line.readData()
         match sensor1, sensor2, sensor3, sensor4:
             case False, False, False, False:
@@ -147,6 +156,7 @@ while True:
                         dealer_socket.send_multipart([b"", "no_line".encode()])
                     if count == 10:
                         looping = False
+                no_line_count = 0
             case False, False, False, True:
                 car.set_velocity(10, 90, 0.2)
             case False, False, True, False:
@@ -174,7 +184,7 @@ while True:
                         time.sleep(0.8)
                     elif aisle_var == "enter":
                         logging.debug("Entering aisle")
-                        turn(turn_direction)
+                        turn(turn_direction, 0.5, 4)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                     elif aisle_var == "end":
                         turn(0, 1.5)
@@ -209,7 +219,7 @@ while True:
                         time.sleep(0.8)
                     elif aisle_var == "enter":
                         logging.debug("Entering aisle")
-                        turn(turn_direction)
+                        turn(turn_direction, 0.5, 4)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                     elif aisle_var == "end":
                         turn(0, 1.5)
@@ -228,7 +238,7 @@ while True:
                         time.sleep(0.8)
                     elif aisle_var == "enter":
                         logging.debug("Entering aisle")
-                        turn(turn_direction)
+                        turn(turn_direction, 0.5, 4)
                         dealer_socket.send_multipart([b"", "aisle_entered".encode()])
                     elif aisle_var == "end":
                         turn(0, 1.5)

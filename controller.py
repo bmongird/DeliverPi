@@ -224,6 +224,8 @@ class Controller():
                         "command": "stop"
                     }
                     self._send_msg("linefollower", json.dumps(msg))
+                    self._send_msg("linefollower", json.dumps(msg))
+                    self._send_msg("linefollower", json.dumps(msg))
                 case "picking_init":
                     time.sleep(1) #give time to enter aisle
                     color = self.remaining_packages[0]["color"]
@@ -237,6 +239,8 @@ class Controller():
                         "command": "stop"
                     }
                     self._send_msg("linefollower", json.dumps(msg))
+                    self._send_msg("linefollower", json.dumps(msg))
+                    self._send_msg("linefollower", json.dumps(msg))
                 case "path_blocked":
                     msg = {
                         "command": "stop"
@@ -249,8 +253,10 @@ class Controller():
                     msg = {
                         "command": "resume"
                     }
-                    for component in self.components:
-                        self._send_msg(component, json.dumps(msg))
+                    print("UNBLOCKED PATH")
+                    for i in range(0,2):
+                        for component in self.components:
+                            self._send_msg(component, json.dumps(msg))
                 case "blocked_timeout":
                     if current_state == ControllerStates.PickingState:
                         print("BLOCK TIMEOUT REACHED")
@@ -324,33 +330,36 @@ class Controller():
                             time.sleep(3)
                             line_msg = { "command": "stop"}
                             self._send_msg("linefollower", json.dumps(line_msg))
-                            
+                            r = 255
+                            g = 255
+                            b = 255
                             for i in range(0,10):
                                 board.set_buzzer(1500, 0.1, 0.9, 1)
                                 board.set_rgb([[1, r, g, b], [2, r, g, b]])
                                 r -= 10
-                                g -= 55
-                                b -= 30
+                                g -= 20
+                                b -= 5
                                 time.sleep(0.3)
                         else:
                             self._send_msg("linefollower", '{"command": "ignore"}')
                 case "no_line":
                     if current_state == ControllerStates.PickingState:
-                        # failed to grab this package. abandon it and move on
-                        msg = f"Failed to grab package {self.remaining_packages[0]}: Not found in aisle"
-                        self.pub_socket.send(msg.encode())
-                        self.remaining_packages[0]["picked"] = False
-                        self.completed_packages.append(self.remaining_packages.pop(0))
-                        event = "not_detected"
-                        line_msg = {
-                            "command": "start",
-                            "param": 180
-                        }
-                        cam_msg = {
-                            "command": "stop"
-                        }
-                        self._send_msg("camera", json.dumps(cam_msg))
-                        self._send_msg("linefollower", json.dumps(line_msg))
+                        pass
+                        # # failed to grab this package. abandon it and move on
+                        # msg = f"Failed to grab package {self.remaining_packages[0]}: Not found in aisle"
+                        # self.pub_socket.send(msg.encode())
+                        # self.remaining_packages[0]["picked"] = False
+                        # self.completed_packages.append(self.remaining_packages.pop(0))
+                        # event = "not_detected"
+                        # line_msg = {
+                        #     "command": "start",
+                        #     "param": 180
+                        # }
+                        # cam_msg = {
+                        #     "command": "stop"
+                        # }
+                        # self._send_msg("camera", json.dumps(cam_msg))
+                        # self._send_msg("linefollower", json.dumps(line_msg))
             self.state_machine.transition(event)
             
     def execution_thread(self):
