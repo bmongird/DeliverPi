@@ -1,7 +1,7 @@
 import logging
 import threading
 import time
-from typing import override
+# from typing import override # can cause problems due to missing package
 import zmq
 import json
 
@@ -31,7 +31,7 @@ class ServerThread(threading.Thread):
         self.sock = self.ctx.socket(zmq.PUB)
         self.sock.bind(f"tcp://*:{port}")
 
-    @override
+    # @override
     def run(self) -> None:
         logging.info("starting")
         start_time = time.time()

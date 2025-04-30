@@ -1,7 +1,7 @@
 import heapq
 import logging
 import threading
-from typing import override
+# from typing import override # can cause problems due to missing package
 import zmq
 from common import (
     CONTROLLER_PORT,
@@ -41,7 +41,7 @@ class HubThread(threading.Thread):
         self.controller_sock.connect(f"tcp://{CONTROLLER_HOST}:{CONTROLLER_PORT}")
         self.controller_sock.setsockopt_string(zmq.SUBSCRIBE, "")
 
-    @override
+    # @override
     def run(self):
         logging.info("starting")
         poller = zmq.Poller()
