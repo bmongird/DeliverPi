@@ -5,6 +5,8 @@ from typing import List
 logging.basicConfig(filename="logs.txt", level=logging.DEBUG, format=f'[STATES] %(asctime)s - %(levelname)s - %(message)s')
 
 class State():
+    """ Generalized class for a state
+    """
     @staticmethod
     def determine_next_state(event: str) -> "State":
         pass
@@ -23,7 +25,9 @@ class State():
     def name(cls):
         return cls.__name__
     
-class StateMachine():    
+class StateMachine():
+    """ Generalized state machine class
+    """ 
     states: List[State]
     previous_state: State
     state: State
@@ -62,6 +66,8 @@ class StateMachine():
         return self.__class__.__name__
     
 class ControllerStates:
+    """ Container class to hold all possible controller states
+    """
     
     class PreviousState(State):
         """Placeholder state to notify state machine to revert to previous state
@@ -154,9 +160,15 @@ class ControllerStates:
     
     def __new__(cls):
         return [
-            cls.InitState,
+            cls.PreviousState,
+            cls.PathBlockedState,
+            cls.MovingToAisleState,
+            cls.ExitAisleState,
+            cls.MovingToHubState,
+            cls.PickingState,
+            cls.GrabbingState,
             cls.IdleState,
-            cls.PickingState
+            cls.InitState
         ]
     
 class ControllerStateMachine(StateMachine):      

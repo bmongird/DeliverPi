@@ -1,3 +1,6 @@
+""" Fairly simple ultrasonic detection script. Not really much to it.
+"""
+
 import json
 import logging
 import sys
@@ -11,6 +14,7 @@ logging.basicConfig(filename="logs.txt", level=logging.DEBUG, format=f'[ULTRASON
 
 HWSONAR = Sonar.Sonar()
 
+# open communication with the controller
 context = zmq.Context()
 dealer_socket = context.socket(zmq.DEALER)
 dealer_socket.identity = b"ultrasonic"
@@ -20,12 +24,10 @@ is_blocked = False
 _is_running = False
 time_blocked = 0
 
-
-
 def msg():
     global _is_running
     while(True):
-        empty, request = dealer_socket.recv_multipart() # removing the prepended filter
+        empty, request = dealer_socket.recv_multipart()
         request = json.loads(request)
         logging.debug(f"Received request: {request}")
         

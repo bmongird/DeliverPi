@@ -10,9 +10,11 @@ import threading
 import logging
 from states import ControllerStateMachine, ControllerStates
 from common import CONTROLLER_PORT, HUB_PORT, OrderData, validate_order_data
+import HiwonderSDK.ros_robot_controller_sdk as rrc
+import HiwonderSDK.mecanum as mecanum
+
 
 sys.path.append('/home/pi/TurboPi/')
-import HiwonderSDK.mecanum as mecanum
 
 
 logging.basicConfig(filename="logs.txt", level=logging.DEBUG, format=f'[CONTROLLER] %(asctime)s - %(levelname)s - %(message)s')
@@ -27,16 +29,19 @@ active_subprocesses.append(ultrasonic_process)
 linefollower_process = subprocess.Popen(["python", os.path.join(os.getcwd(), "linefollower.py")])
 active_subprocesses.append(linefollower_process)
 
+# get car and board objects
 car = mecanum.MecanumChassis()
-import HiwonderSDK.ros_robot_controller_sdk as rrc
 board = rrc.Board()
 
+# global var to keep track of what aisle we are at/in
 aisle_num = 0
 
 HUB_HOST = "192.168.149.67"
 
 class Controller():
-    """Singleton class that controls robot execution
+    """ Singleton class that controls robot execution. 
+        This is configured as an automated package picking robot controller. It contains
+        a state machine, interprocess communication, and a looping execution thread.
     """
     __initialized = False
     instance = None
@@ -65,6 +70,7 @@ class Controller():
             self.components = ["camera", "ultrasonic", "linefollower"]
             self.check_components()
             
+            # keep track of all packages processed
             self.remaining_packages = []
             self.completed_packages = []
             
@@ -104,29 +110,15 @@ class Controller():
             self.process_message(identity, message)
                         
     def process_message(self, identity: str, message: str):
-        """Process a message received on the router socket
-
+        """ Process a message received on the router socket
+            Not useful right now but could be helpful if pre-processing needs to be done.
         :param message: message to process
         """
-        match identity:
-            case "camera":
-                if "color_detected" in message:
-                    # Trigger appropriate action
-                    print("CONTROLLER: Color detected!")
-                    self.process_event("color_detected")
-                    logging.debug(f"Taking action for detected color: {message}")
-                elif "STOPPED" in message:
-                    logging.debug(f"Successfully stopped color detection")
-                elif "ERROR" in message:
-                    logging.error(f"{identity} {message}")
-            case "ultrasonic":
-                self.process_event(message)
-            case "linefollower":
-                self.process_event(message)
+        self.process_event(message)
                     
     
     def check_components(self):
-        """Verify that all components are available and online
+        """Verifies that all components are available and online via router socket
         """
         self.router_socket.setsockopt(zmq.RCVTIMEO, 3000) # timeout on receives after 3s
         print("INITIATING COMPONENT CHECKS\n--------------------------------------")
@@ -160,7 +152,7 @@ class Controller():
         self.router_socket.setsockopt(zmq.RCVTIMEO, -1)
         
     def process_event(self, event: str):
-        """Process an event. Note that this function needs to run fairly quickly to avoid slowdown
+        """ Process an event. Note that this function needs to run fairly quickly to avoid slowdown
 
         :param event: event to be processed
         """
@@ -183,18 +175,30 @@ class Controller():
                     self.remaining_packages[0]["picked"] = True
                     self.completed_packages.append(self.remaining_packages.pop(0))
                     logging.info(f"Successfully grabbed package {self.completed_packages[-1]}")
+                    
+                    # no more packages,
                     if len(self.remaining_packages) > 0:
                         if self.remaining_packages[0]["aisle"] == self.completed_packages[-1]["aisle"]:
-                            # back up and picking init          
-                            # implement this in line follower instead for robustness 
-                            car.set_velocity(-20,90,0)
-                            time.sleep(1)
+                            """ special case if the new package is in the same aisle. back up and keep picking but with new color.
+                                this should probably be caught in the exit aisle state with "aisle_reached" instead. that
+                                way would be easier and could use linefollowing instead of this crude approach
+                            """
+                            line_msg = {"command": "stop"}
+                            self._send_msg("linefollower", json.dumps(msg))
+                            # wait for msg received
+                            time.sleep(0.4)
+                            
+                            car.set_velocity(-25,90,0)
+                            time.sleep(1.5)
+                            
                             color = self.remaining_packages[0]["color"]
                             msg = {
                                 "command": "detect_color",
                                 "color": color
                             }
+                            line_msg = {"command": "start"}
                             self._send_msg("camera", json.dumps(msg))
+                            self._send_msg("linefollower", json.dumps(msg))
                         else:
                             msg = {
                                 "command": "start",
@@ -210,21 +214,12 @@ class Controller():
                             "param": 180
                         }
                         self._send_msg("linefollower", json.dumps(msg))
-                    # if no more items to grab in this aisle
-                        # also, if no more orders period, should go back to hub
-
-                    # else, back to start of aisle and find next item
-                    # msg = {
-                    #     "command": "detect_color",
-                    #     "color": "red"
-                    # }
-                    # self._send_msg("camera", json.dumps(msg))
                 case "movement_complete":
+                    # occasionaly commands get lost for some reason likely due some funky settings on the robot
+                    # might have to send this message multiple times
                     msg = {
                         "command": "stop"
                     }
-                    self._send_msg("linefollower", json.dumps(msg))
-                    self._send_msg("linefollower", json.dumps(msg))
                     self._send_msg("linefollower", json.dumps(msg))
                 case "picking_init":
                     time.sleep(1) #give time to enter aisle
@@ -239,8 +234,6 @@ class Controller():
                         "command": "stop"
                     }
                     self._send_msg("linefollower", json.dumps(msg))
-                    self._send_msg("linefollower", json.dumps(msg))
-                    self._send_msg("linefollower", json.dumps(msg))
                 case "path_blocked":
                     msg = {
                         "command": "stop"
@@ -253,18 +246,17 @@ class Controller():
                     msg = {
                         "command": "resume"
                     }
-                    print("UNBLOCKED PATH")
-                    for i in range(0,2):
-                        for component in self.components:
-                            self._send_msg(component, json.dumps(msg))
+                    for component in self.components:
+                        self._send_msg(component, json.dumps(msg))
                 case "blocked_timeout":
                     if current_state == ControllerStates.PickingState:
-                        print("BLOCK TIMEOUT REACHED")
-                        # TODO: should come back to item at end. for now, just abandoning it
-                        # self.remaining_packages.append(self.remaining_packages.pop(0))
-                        msg = f"Failed to grab package {self.remaining_packages[0]}: Could not reach due to obstacle"
+                        # notifying hub
+                        msg = f"Failed to grab package {self.remaining_packages[0]}: Could not reach"
                         self.pub_socket.send(msg.encode())
-                        self.remaining_packages.pop(0)
+                        
+                        self.remaining_packages[0]["picked"] = False
+                        self.completed_packages.append(self.remaining_packages.pop(0))
+                        # override event
                         event = "not_detected"
                         line_msg = {
                             "command": "start",
@@ -279,18 +271,19 @@ class Controller():
                     # here, should check what aisle/lane we need to be in and react accordingly.
                     if current_state == ControllerStates.ExitAisleState:
                         if len(self.remaining_packages) == 0:
+                            # moving past current aisle so subtract
                             aisle_num -= 1
                             event = "to_hub"
                             self._send_msg("linefollower", '{"command": "enter", "direction": "right"}')
-                            # time.sleep(0.5)
-                            # self._send_msg("linefollower", '{"command": "turn", "direction": "right"}')
                         else:
                             event = "to_aisle" #override event to transition to movingtoaislestate
                             self._send_msg("linefollower", '{"command": "enter"}')
                     elif current_state == ControllerStates.PickingState:
-                        # failed to grab this package. abandon it and move on
+                        # couldn't find this package. abandon it and move on
+                        # notify hub
                         msg = f"Failed to grab package {self.remaining_packages[0]}: Not found in aisle"
                         self.pub_socket.send(msg.encode())
+                        
                         self.remaining_packages[0]["picked"] = False
                         self.completed_packages.append(self.remaining_packages.pop(0))
                         event = "not_detected"
@@ -305,7 +298,6 @@ class Controller():
                         line_msg = { "command": "end"}
                         self._send_msg("linefollower", json.dumps(line_msg))
                     elif current_state == ControllerStates.MovingToAisleState:
-                        print(f"Aisle num: {aisle_num}")
                         if len(self.remaining_packages) > 0:
                             if aisle_num == self.remaining_packages[0]["aisle"]:
                                 self._send_msg("linefollower", '{"command": "enter"}')
@@ -319,7 +311,6 @@ class Controller():
                             aisle_num += 1
                     elif current_state == ControllerStates.MovingToHubState:
                         aisle_num -= 1
-                        print(f"Aisle num: {aisle_num}")
                         if aisle_num == -1:
                             print("Made it back to hub!")
                             event = "movement_complete"
@@ -330,6 +321,8 @@ class Controller():
                             time.sleep(3)
                             line_msg = { "command": "stop"}
                             self._send_msg("linefollower", json.dumps(line_msg))
+                            
+                            # simulate dropoff
                             r = 255
                             g = 255
                             b = 255
@@ -345,21 +338,6 @@ class Controller():
                 case "no_line":
                     if current_state == ControllerStates.PickingState:
                         pass
-                        # # failed to grab this package. abandon it and move on
-                        # msg = f"Failed to grab package {self.remaining_packages[0]}: Not found in aisle"
-                        # self.pub_socket.send(msg.encode())
-                        # self.remaining_packages[0]["picked"] = False
-                        # self.completed_packages.append(self.remaining_packages.pop(0))
-                        # event = "not_detected"
-                        # line_msg = {
-                        #     "command": "start",
-                        #     "param": 180
-                        # }
-                        # cam_msg = {
-                        #     "command": "stop"
-                        # }
-                        # self._send_msg("camera", json.dumps(cam_msg))
-                        # self._send_msg("linefollower", json.dumps(line_msg))
             self.state_machine.transition(event)
             
     def execution_thread(self):
@@ -400,6 +378,7 @@ class Controller():
                     # real meat and potatoes
                     pass                    
                 case ControllerStates.GrabbingState:
+                    # simulate grabbing the item
                     r,g,b = 255, 255, 255
                     for i in range (0,5):
                         board.set_buzzer(1900, 0.1, 0.9, 1)

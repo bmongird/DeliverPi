@@ -1,5 +1,9 @@
 #!/usr/bin/python3
 # coding=utf8
+""" While there is a good chunk of modified code (mainly the msg and move functions and some adaptations to 
+    the color detection), much of this code is lifted and adapted from the ColorDetect.py file included 
+    with the robot. Notably, some parameters have been modified to better suit our lighting conditions.
+"""
 import json
 import logging
 import sys
@@ -164,11 +168,6 @@ def move():
                 board.set_buzzer(1900, 0.1, 0.9, 1)# 设置蜂鸣器响0.1秒(set the buzzer to emit for 0.1 second)
                 set_rgb(detect_color) # 设置扩展板上的彩灯与检测到的颜色一样(set the colored light on the expansion board to match the detected color)
                 
-                # send reply
-                # response = {
-                #     "status": "found",
-                #     "color": target_color,
-                # }
                 dealer_socket.send_multipart([b"", b"color_detected"])
                 stop()
                 detect_color = 'None'
@@ -185,17 +184,8 @@ def move():
             time.sleep(0.01)
             
 def msg():
-    # sub_socket = context.socket(zmq.SUB)
-    # sub_socket.connect("tcp://localhost:4444")
-    # sub_socket.setsockopt_string(zmq.SUBSCRIBE, "camera/")
-    
-    # detect_msg_identity = None
-    
     while(True):
-        # request = socket.recv_json()
         empty, request = dealer_socket.recv_multipart() # removing the prepended filter
-        # if request.startswith("camera/"):
-        #     request = request[len("camera/ "):]
         request = json.loads(request)
         logging.debug(f"Received request: {request}")
         
