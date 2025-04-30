@@ -7,14 +7,22 @@ import json
 
 from common import SERVER_PORT, OrderData
 
+# json file to use for test orders
 TEST_ORDERS_FILE = "orders.json"
 
 
 class TestOrderData(OrderData):
-    time: int
+    """Struct representing the data of a single test order"""
+
+    time: int  # the time from the thread start for the order to "arrive"
 
 
 class ServerThread(threading.Thread):
+    """
+    Central Server thread used for testing
+    Responsible for reading the order data from a json file and sending the orders to the delivery hub.
+    """
+
     def __init__(self, port: int):
         super().__init__(name="SERVER")
         with open(TEST_ORDERS_FILE) as f:
@@ -29,6 +37,7 @@ class ServerThread(threading.Thread):
         start_time = time.time()
         logging.debug(f"start time: {start_time}")
         for order in self.orders:
+            # wait for the next order "arrival"
             sleep_time = order["time"] + start_time - time.time()
             if sleep_time > 0:
                 logging.debug(f"sleeping for {sleep_time}")
