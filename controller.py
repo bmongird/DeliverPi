@@ -118,7 +118,7 @@ class Controller():
                     
     
     def check_components(self):
-        """Verifies that all components are available and online via router socket
+        """Verifies that all components are available and online via router socket.
         """
         self.router_socket.setsockopt(zmq.RCVTIMEO, 3000) # timeout on receives after 3s
         print("INITIATING COMPONENT CHECKS\n--------------------------------------")
@@ -152,8 +152,11 @@ class Controller():
         self.router_socket.setsockopt(zmq.RCVTIMEO, -1)
         
     def process_event(self, event: str):
-        """ Process an event. Note that this function needs to run fairly quickly to avoid slowdown
-
+        """ This function will process an event passed to it. The basic operational idea is that
+            we are in some state, and as we transition, there are things we need to take care of. 
+            For example, when we reach an aisle, we have to take care of entering that aisle/picking init
+            before we complete the transition into the picking state. Note that this function needs to
+            run fairly quickly to avoid major slowdown.
         :param event: event to be processed
         """
         global aisle_num
@@ -341,7 +344,9 @@ class Controller():
             self.state_machine.transition(event)
             
     def execution_thread(self):
-        """Main thread of execution for the controller.
+        """ Main thread of execution for the controller. This doesn't contain much but
+            can be useful when more complicated controller functionality is needed within
+            certain states.
         """
         # small delay to ensure sockets are connected
         time.sleep(1)
@@ -392,7 +397,8 @@ class Controller():
                     # order_grabbed
 
     def exit(self, code: int = 0, msg: str = None):
-        """Clean up remaining resources and safely exit the program
+        """ Clean up remaining resources and safely exit the program. This will kill
+            and reap all child processes.
 
         :param code: exit code, defaults to 0
         :param msg: exit message, defaults to None

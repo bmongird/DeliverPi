@@ -34,7 +34,9 @@ aisle_condition = threading.Condition()
 
 
 def turn(direction: int, timesleep: float = 0.3, speed: int = 0):
-    """Function to control vehicle aisle turning
+    """ Function to control vehicle aisle turning. This could probably be improved and you must
+        take special care with calibrating the correct timesleep values for the given yaw/speed,
+        otherwise can overturn.
 
     :param direction: 0 for left, 1 for right
     """
@@ -52,7 +54,6 @@ def turn(direction: int, timesleep: float = 0.3, speed: int = 0):
         elif direction == 1 and sensor4:
             turning = False
     car.set_velocity(0,90,0)
-    print(f"was_running val: {was_running}")
     _is_running = was_running
             
             
@@ -64,7 +65,6 @@ def msg():
         empty, request = dealer_socket.recv_multipart() # removing the prepended filter
         request = json.loads(request)
         logging.debug(f"Received request: {request}")
-        print(f"LINEFOLLOWER: Received request {request}")
         
         if request["command"] == "check":
             dealer_socket.send_multipart([b"", "ONLINE".encode()])
@@ -99,7 +99,6 @@ def msg():
             #continue down aisle
             with aisle_condition:
                 aisle_var = "enter"
-                print("secured condition var in msg")
                 turn_direction = 1 if "direction" in request else 0 #TODO: make direction mandatory in the request
                 aisle_condition.notify()
         elif request["command"] == "ignore":
@@ -119,25 +118,13 @@ car.set_velocity(0,90,0)
 
 no_line_count = 0
 
+
+""" To be honest, I wouldn't touch the below code unless modifying values for some reason as it's confusing.
+    It works pretty well most of the time except the line sensor can occasionally hallucinate
+    black when there is none.
+"""
 while True:
     while _is_running:
-        # Averaging sensor data
-        # s = [0,0,0,0]
-        # sensor1, sensor2, sensor3, sensor4 = [False, False, False, False]
-        # for i in range(0,3):
-        #     sensor1, sensor2, sensor3, sensor4 = line.readData() # 读取4路循传感器数据(read 4-channel sensor data)
-        #     j = 0
-        #     for sensor in [sensor1,sensor2,sensor3,sensor4]:
-        #         if sensor:
-        #             s[j] += 1
-        #         j +=1
-        # j = 0
-        # for sensor in [sensor1, sensor2, sensor3, sensor4]:
-        #     if s[j] >= 2:
-        #         sensor = True
-        #     else:
-        #         sensor = False
-        #     j +=1
         sensor1, sensor2, sensor3, sensor4 = line.readData()
         match sensor1, sensor2, sensor3, sensor4:
             case False, False, False, False:
@@ -150,7 +137,9 @@ while True:
                     if sensor1 == False and sensor2 == False and sensor3 == False and sensor4 == False:
                         no_line_count += 1
                         time.sleep(0.1)
-                    if no_line_count == 10:# should be looping here
+                    if no_line_count == 10:
+                        # lost the line! try to spin and find it again, but notify controller in case
+                        # action needs to be taken
                         no_line_count = 0
                         car.set_velocity(0,90,-.1)
                         dealer_socket.send_multipart([b"", "no_line".encode()])
