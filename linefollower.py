@@ -4,14 +4,9 @@ import sys
 
 import zmq
 sys.path.append('/home/pi/TurboPi/')
-import cv2
 import time
-import math
-import signal
-import Camera
 import threading
 import numpy as np
-import yaml_handle
 import HiwonderSDK.mecanum as mecanum
 import HiwonderSDK.FourInfrared as infrared
 
