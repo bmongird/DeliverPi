@@ -325,6 +325,9 @@ class Controller():
                             line_msg = { "command": "stop"}
                             self._send_msg("linefollower", json.dumps(line_msg))
                             
+                            msg = f"Dropping off packages {self.completed_packages}"
+                            self.pub_socket.send(msg.encode())
+                            
                             # simulate dropoff
                             r = 255
                             g = 255
